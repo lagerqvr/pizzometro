@@ -1,18 +1,33 @@
 "use client";
 
-import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import * as db from "./db";
-import { claim } from "./merge";
+import { claim, othersRatings } from "./merge";
 import { loadSettings, saveSettings } from "./settings";
 import {
+  clearTrip,
+  forgetRoster,
   getServerSyncState,
   getSyncState,
   refreshPending,
   subscribeEntries,
   subscribeSync,
   syncNow,
+  withdrawFrom,
 } from "./sync";
-import { loadTrip, newRater, resetMark, saveTrip } from "./trip";
+import {
+  clearMembership,
+  loadTrip,
+  newRater,
+  resetMark,
+  saveTrip,
+} from "./trip";
 import { DEFAULT_SETTINGS, type Entry, type Settings, type Trip } from "./types";
 
 export function useEntries() {
@@ -40,7 +55,8 @@ export function useEntry(id: string) {
 
   const refresh = useCallback(() => {
     db.getEntry(id)
-      .then((found) => setEntry(found ?? null))
+      // A tombstone is a deletion that has arrived, not something to show.
+      .then((found) => setEntry(found && !found.deleted ? found : null))
       .catch(() => setEntry(null));
   }, [id]);
 
@@ -48,6 +64,21 @@ export function useEntry(id: string) {
   useEffect(() => subscribeEntries(refresh), [refresh]);
 
   return { entry, loading: entry === undefined, refresh };
+}
+
+/**
+ * One object URL per blob, released when that blob is replaced and not a
+ * moment sooner. Sharing a single cleanup between two blobs is how stepping
+ * back from the preview lost the photo: the card changing revoked the
+ * photo's URL along with the old card's.
+ */
+export function useObjectUrl(blob: Blob | null): string | null {
+  const url = useMemo(() => (blob ? URL.createObjectURL(blob) : null), [blob]);
+  useEffect(() => {
+    if (!url) return;
+    return () => URL.revokeObjectURL(url);
+  }, [url]);
+  return url;
 }
 
 /**
@@ -136,6 +167,10 @@ export function useTrip() {
     async (code: string, name: string) => {
       const next: Trip = { code, rater: newRater(name) };
       resetMark();
+      // A new trip knows nobody yet, and this phone has not announced
+      // itself on it.
+      clearMembership();
+      forgetRoster();
       publish(next);
       const now = Date.now();
       const local = await db.listAllEntries();
@@ -148,12 +183,40 @@ export function useTrip() {
     [publish],
   );
 
-  /** Leaving keeps every rating on the phone; only the sharing stops. */
-  const leave = useCallback(() => {
-    resetMark();
-    publish(null);
-    void refreshPending();
-  }, [publish]);
+  /**
+   * Leaving takes your ratings with you. They come off the trip and off
+   * everyone else's phones, and everyone else's come off yours — what stays
+   * here is exactly what you made. The last one out takes the trip itself,
+   * since by then there is nothing in it that is not already on this phone.
+   *
+   * `alone` is decided by the caller, which knows the roster.
+   */
+  const leave = useCallback(
+    async (alone: boolean) => {
+      const current = loadTrip();
+      if (current) {
+        if (alone) await clearTrip(current);
+        else await withdrawFrom(current);
+
+        const local = await db.listAllEntries();
+        // Theirs go from this phone; mine lose the URL of a photo that is
+        // no longer in the trip, so rejoining sends it up again.
+        for (const entry of othersRatings(local, current.rater)) {
+          await db.deleteEntry(entry.id);
+        }
+        const mine = local.filter(
+          (entry) => entry.photoUrl && entry.rater?.id === current.rater.id,
+        );
+        await db.putEntries(mine.map((entry) => ({ ...entry, photoUrl: undefined })));
+      }
+      resetMark();
+      clearMembership();
+      forgetRoster();
+      publish(null);
+      await refreshPending();
+    },
+    [publish],
+  );
 
   return { trip, join, leave };
 }

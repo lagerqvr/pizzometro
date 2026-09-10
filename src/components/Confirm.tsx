@@ -11,11 +11,17 @@ import {
 
 export type ConfirmRequest = {
   title: string;
-  body?: string;
+  /** Rich enough to set a trip code in the app's own type. */
+  body?: React.ReactNode;
   /** The word on the button that goes through with it. */
   action: string;
   /** Draws the action in accent — for anything that removes something. */
   destructive?: boolean;
+  /**
+   * A word that has to be typed before the action can be taken. For the
+   * handful of things that cannot be undone and affect more than one phone.
+   */
+  confirmText?: string;
 };
 
 type ConfirmApi = (request: ConfirmRequest) => Promise<boolean>;
@@ -29,10 +35,12 @@ export function useConfirm(): ConfirmApi {
 
 export function ConfirmProvider({ children }: { children: React.ReactNode }) {
   const [request, setRequest] = useState<ConfirmRequest | null>(null);
+  const [typed, setTyped] = useState("");
   const dialog = useRef<HTMLDialogElement>(null);
   const answer = useRef<((ok: boolean) => void) | null>(null);
 
   const ask = useCallback<ConfirmApi>((next) => {
+    setTyped("");
     setRequest(next);
     return new Promise<boolean>((resolve) => {
       answer.current = resolve;
@@ -89,6 +97,21 @@ export function ConfirmProvider({ children }: { children: React.ReactNode }) {
                   {request.body}
                 </p>
               )}
+              {request.confirmText && (
+                <label className="mt-3 block">
+                  <span className="label">
+                    Type “{request.confirmText}” to confirm
+                  </span>
+                  <input
+                    value={typed}
+                    onChange={(event) => setTyped(event.target.value)}
+                    autoComplete="off"
+                    autoCapitalize="none"
+                    spellCheck={false}
+                    className="mt-1 w-full border-b border-rule bg-transparent py-2 text-base outline-none focus:border-ink"
+                  />
+                </label>
+              )}
             </div>
             <div className="grid grid-cols-2 gap-px bg-rule">
               <button
@@ -101,8 +124,13 @@ export function ConfirmProvider({ children }: { children: React.ReactNode }) {
               <button
                 type="button"
                 autoFocus
+                disabled={
+                  Boolean(request.confirmText) &&
+                  typed.trim().toLowerCase() !==
+                    request.confirmText!.toLowerCase()
+                }
                 onClick={() => close(true)}
-                className={`bg-paper py-4 text-[0.6875rem] tracking-[0.22em] ${
+                className={`bg-paper py-4 text-[0.6875rem] tracking-[0.22em] disabled:opacity-40 ${
                   request.destructive ? "text-accent" : "text-ink"
                 }`}
               >

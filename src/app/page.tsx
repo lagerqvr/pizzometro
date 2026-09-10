@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { EntryCard } from "@/components/EntryCard";
-import { TripFooter, Wordmark } from "@/components/Wordmark";
+import { Wordmark } from "@/components/Wordmark";
 import { useEntries } from "@/lib/hooks";
 import { formatRating, stats } from "@/lib/score";
 
@@ -50,7 +50,6 @@ export default function HomePage() {
           )}
         </section>
 
-        <TripFooter />
       </main>
 
       {/* The whole point of the app: one tap from open to shooting. */}

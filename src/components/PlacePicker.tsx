@@ -38,12 +38,29 @@ export function PlacePicker({
       : "failed",
   );
   const coords = useRef<{ lat: number; lon: number } | null>(null);
+  // A place already chosen needs no lookup: editing an old rating should not
+  // spend a GPS fix and an Overpass call to re-answer a settled question.
+  const chosen = value !== null;
 
   useEffect(() => {
+    if (chosen) return;
     if (!navigator.geolocation) return;
     let cancelled = false;
+
+    /*
+     * iOS can answer a denied permission with silence — neither callback
+     * ever runs — which used to leave "LOCATING…" on the screen for good.
+     * This is the backstop: after it, the text field is the way in.
+     */
+    const watchdog = setTimeout(() => {
+      if (!cancelled) {
+        setStatus((current) => (current === "locating" ? "denied" : current));
+      }
+    }, 10_000);
+
     navigator.geolocation.getCurrentPosition(
       async (position) => {
+        clearTimeout(watchdog);
         if (cancelled) return;
         coords.current = {
           lat: position.coords.latitude,
@@ -60,14 +77,16 @@ export function PlacePicker({
         setStatus(places.length ? "ready" : "failed");
       },
       () => {
+        clearTimeout(watchdog);
         if (!cancelled) setStatus("denied");
       },
       { enableHighAccuracy: true, timeout: 8000, maximumAge: 60_000 },
     );
     return () => {
       cancelled = true;
+      clearTimeout(watchdog);
     };
-  }, []);
+  }, [chosen]);
 
   // Debounced search, so typing doesn't hammer the proxy.
   useEffect(() => {

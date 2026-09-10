@@ -14,6 +14,8 @@
   --color-muted: #7d7768;
   --color-accent: #bf360c;
   --color-accent-warm: #e65100;
+  /* Basil — the settled state, from the same family as the oranges. */
+  --color-basil: #558b2f;
 
   --font-mono: var(--font-plex), ui-monospace, SFMono-Regular, monospace;
   --font-type: var(--font-courier), var(--font-plex), ui-monospace, monospace;

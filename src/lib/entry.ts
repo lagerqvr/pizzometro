@@ -9,7 +9,10 @@ export function fieldsFor(kind: EntryKind): {
   style: boolean;
   nameLabel: string;
   namePlaceholder: string;
+  /** One tap instead of typing, for the three styles you meet most. */
+  styles: string[];
 } {
+  const styles = ["Napoletana", "Romana", "Al taglio"];
   switch (kind) {
     case "pizzeria":
       return {
@@ -17,6 +20,7 @@ export function fieldsFor(kind: EntryKind): {
         style: true,
         nameLabel: "PIZZA",
         namePlaceholder: "Margherita",
+        styles,
       };
     case "homemade":
       return {
@@ -24,6 +28,7 @@ export function fieldsFor(kind: EntryKind): {
         style: true,
         nameLabel: "PIZZA",
         namePlaceholder: "Margherita",
+        styles,
       };
     case "other":
       return {
@@ -31,6 +36,8 @@ export function fieldsFor(kind: EntryKind): {
         style: false,
         nameLabel: "ITEM",
         namePlaceholder: "Sfogliatella",
+        // A dolce has no style field to offer them in.
+        styles: [],
       };
   }
 }

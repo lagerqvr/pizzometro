@@ -2,14 +2,14 @@
 
 import {
   CARD_PAD,
-  CARD_SIZE,
-  STAMP_TYPE,
   buildStamp,
+  cardSize,
   coverRect,
   stampLayout,
   stampLines,
+  stampType,
 } from "./compose";
-import type { Entry, Settings } from "./types";
+import type { Entry, PhotoQuality, Settings } from "./types";
 
 const INK = "#212121";
 
@@ -54,22 +54,29 @@ function drawStamp(
   ctx: CanvasRenderingContext2D,
   lines: string[],
   settings: Settings,
-  size: number,
+  width: number,
+  height: number,
 ): void {
-  const { x, align, isTop } = stampLayout(settings.stampCorner);
-  const step = Math.round(STAMP_TYPE * 1.42);
+  const { x, align, isTop } = stampLayout(
+    settings.stampCorner,
+    width,
+    CARD_PAD,
+    height,
+  );
+  const type = stampType(settings.stampSize);
+  const step = Math.round(type * 1.42);
 
   ctx.save();
   ctx.textAlign = align;
   ctx.textBaseline = "alphabetic";
-  ctx.font = `400 ${STAMP_TYPE}px ${mono()}`;
+  ctx.font = `400 ${type}px ${mono()}`;
   ctx.fillStyle = "#FFFFFF";
 
   // Top corners hang the first baseline below the padding line; bottom
   // corners sit the last baseline on it.
   const first = isTop
-    ? CARD_PAD + STAMP_TYPE
-    : size - CARD_PAD - step * (lines.length - 1);
+    ? CARD_PAD + type
+    : height - CARD_PAD - step * (lines.length - 1);
   lines.forEach((line, index) => ctx.fillText(line, x, first + index * step));
   ctx.restore();
 }
@@ -83,26 +90,34 @@ export async function renderCard(
   entry: Entry,
   settings: Settings,
 ): Promise<Blob> {
-  const size = CARD_SIZE;
+  const bitmap = await loadBitmap(photo);
+  const { width, height } = cardSize(
+    { width: bitmap.width, height: bitmap.height },
+    settings.squareCrop,
+  );
+
   const canvas = document.createElement("canvas");
-  canvas.width = size;
-  canvas.height = size;
+  canvas.width = width;
+  canvas.height = height;
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("Canvas is unavailable on this device");
 
   ctx.fillStyle = INK;
-  ctx.fillRect(0, 0, size, size);
+  ctx.fillRect(0, 0, width, height);
 
-  const bitmap = await loadBitmap(photo);
   const { sx, sy, sw, sh } = coverRect(
     { width: bitmap.width, height: bitmap.height },
-    { width: size, height: size },
+    { width, height },
   );
-  ctx.drawImage(bitmap, sx, sy, sw, sh, 0, 0, size, size);
+  ctx.drawImage(bitmap, sx, sy, sw, sh, 0, 0, width, height);
   if ("close" in bitmap) bitmap.close();
 
-  const lines = stampLines(buildStamp(entry, settings));
-  if (lines.length > 0) drawStamp(ctx, lines, settings, size);
+  const lines = stampLines(
+    buildStamp(entry, settings),
+    stampType(settings.stampSize),
+    width,
+  );
+  if (lines.length > 0) drawStamp(ctx, lines, settings, width, height);
 
   return new Promise<Blob>((resolve, reject) => {
     canvas.toBlob(
@@ -115,8 +130,20 @@ export async function renderCard(
 }
 
 /**
- * Downscales a camera photo before it goes into IndexedDB. Phone cameras
- * produce 4–12 MB files; 1600px is plenty for a 1080px card.
+ * The long side a photo is kept at. `full` is capped at 4096 rather than
+ * uncapped: it is above any phone camera's longest side, so a full-size
+ * photo passes through untouched, while an absurd input still cannot ask
+ * the canvas for a gigapixel.
+ */
+export const PHOTO_MAX: Record<PhotoQuality, number> = {
+  balanced: 1600,
+  full: 4096,
+};
+
+/**
+ * Downscales a camera photo before it goes into IndexedDB, and re-encodes
+ * anything that is not already a JPEG — an iPhone hands over HEIC, which
+ * only Safari can read.
  */
 export async function shrinkPhoto(file: Blob, max = 1600): Promise<Blob> {
   const bitmap = await loadBitmap(file);
@@ -133,6 +160,9 @@ export async function shrinkPhoto(file: Blob, max = 1600): Promise<Blob> {
   ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
   if ("close" in bitmap) bitmap.close();
   return new Promise<Blob>((resolve) => {
-    canvas.toBlob((blob) => resolve(blob ?? file), "image/jpeg", 0.9);
+    // A full-quality photo is the only copy there will be, so it is worth
+    // a little more of the bit budget than a browsing-sized one.
+    const quality = max > 1600 ? 0.95 : 0.9;
+    canvas.toBlob((blob) => resolve(blob ?? file), "image/jpeg", quality);
   });
 }

@@ -1,15 +1,16 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Camera } from "@/components/Camera";
+import { ChipField } from "@/components/ChipField";
 import { PlacePicker } from "@/components/PlacePicker";
 import { RatingDial } from "@/components/RatingDial";
 import { useSnackbar } from "@/components/Snackbar";
 import { EMPTY_DRAFT, fieldsFor, toEntry, validate, type Draft } from "@/lib/entry";
-import { useSettings, useTrip } from "@/lib/hooks";
+import { useObjectUrl, useSettings, useTrip } from "@/lib/hooks";
 import { newId, putEntry, putPhoto } from "@/lib/db";
-import { renderCard, shrinkPhoto } from "@/lib/render";
+import { PHOTO_MAX, renderCard, shrinkPhoto } from "@/lib/render";
 import { saveMessage, saveToPhotos } from "@/lib/share";
 import { syncNow } from "@/lib/sync";
 import type { EntryKind } from "@/lib/types";
@@ -29,23 +30,15 @@ export default function NewEntryPage() {
   const { trip } = useTrip();
 
   const [step, setStep] = useState<Step>("shoot");
-  const [shot, setShot] = useState<{ blob: Blob; url: string } | null>(null);
+  const [photo, setPhoto] = useState<Blob | null>(null);
   const [draft, setDraft] = useState<Draft>(EMPTY_DRAFT);
-  const [card, setCard] = useState<{ blob: Blob; url: string } | null>(null);
+  const [card, setCard] = useState<Blob | null>(null);
   const [busy, setBusy] = useState(false);
   const saved = useRef(false);
 
-  const photo = shot?.blob ?? null;
-  const photoUrl = shot?.url ?? null;
-
-  // Object URLs are released when the flow unmounts; the values themselves
-  // are created alongside their blob, never in an effect.
-  useEffect(() => {
-    return () => {
-      if (shot) URL.revokeObjectURL(shot.url);
-      if (card) URL.revokeObjectURL(card.url);
-    };
-  }, [shot, card]);
+  // Each blob owns its own URL, so one changing never invalidates the other.
+  const photoUrl = useObjectUrl(photo);
+  const cardUrl = useObjectUrl(card);
 
   const patch = useCallback(
     (next: Partial<Draft>) => setDraft((current) => ({ ...current, ...next })),
@@ -55,15 +48,14 @@ export default function NewEntryPage() {
   const onCapture = useCallback(async (blob: Blob) => {
     setBusy(true);
     try {
-      const shrunk = await shrinkPhoto(blob);
-      setShot({ blob: shrunk, url: URL.createObjectURL(shrunk) });
+      setPhoto(await shrinkPhoto(blob, PHOTO_MAX[settings.photoQuality]));
       setStep("details");
     } catch {
       snack("Could not read that photo", "warn");
     } finally {
       setBusy(false);
     }
-  }, [snack]);
+  }, [snack, settings.photoQuality]);
 
   const fields = fieldsFor(draft.kind);
   const errors = validate(draft);
@@ -74,16 +66,14 @@ export default function NewEntryPage() {
     setBusy(true);
     try {
       const entry = toEntry(draft, { id: "preview", createdAt: Date.now() });
-      const blob = await renderCard(photo, entry, settings);
-      if (card) URL.revokeObjectURL(card.url);
-      setCard({ blob, url: URL.createObjectURL(blob) });
+      setCard(await renderCard(photo, entry, settings));
       setStep("preview");
     } catch {
       snack("Could not build the picture", "warn");
     } finally {
       setBusy(false);
     }
-  }, [photo, draft, settings, errors.length, card, snack]);
+  }, [photo, draft, settings, errors.length, snack]);
 
   /** Preview → done: persist, then push the picture at the camera roll. */
   const commit = useCallback(async () => {
@@ -100,7 +90,7 @@ export default function NewEntryPage() {
       // signal, and either way the rating is already saved.
       if (trip) void syncNow();
 
-      const result = await saveToPhotos(card.blob, entry);
+      const result = await saveToPhotos(card, entry);
       snack(saveMessage(result), result === "failed" ? "warn" : "ok");
       router.replace(`/entry?id=${id}`);
     } catch {
@@ -114,7 +104,9 @@ export default function NewEntryPage() {
     return (
       <Camera
         guides={settings.cameraGuides}
+        square={settings.squareCrop}
         systemCamera={settings.systemCamera}
+        mirror={settings.mirrorCamera}
         onCapture={onCapture}
         onCancel={() => router.replace("/")}
       />
@@ -123,7 +115,7 @@ export default function NewEntryPage() {
 
   return (
     <main className="flex-1 pb-32">
-      <header className="flex items-center justify-between px-5 pt-[calc(env(safe-area-inset-top)+1rem)]">
+      <header className="flex items-center justify-between px-5 pt-[calc(env(safe-area-inset-top)+2rem)]">
         <button
           type="button"
           onClick={() =>
@@ -169,26 +161,21 @@ export default function NewEntryPage() {
 
           <RatingDial value={draft.rating} onChange={(rating) => patch({ rating })} />
 
-          <label className="plate block px-4 py-3">
-            <span className="label">{fields.nameLabel}</span>
-            <input
-              value={draft.name}
-              onChange={(event) => patch({ name: event.target.value })}
-              placeholder={fields.namePlaceholder}
-              className="mt-1 w-full bg-transparent text-base outline-none placeholder:text-muted"
-            />
-          </label>
+          <ChipField
+            label={fields.nameLabel}
+            placeholder={fields.namePlaceholder}
+            value={draft.name}
+            onChange={(name) => patch({ name })}
+          />
 
           {fields.style && (
-            <label className="plate block px-4 py-3">
-              <span className="label">Style</span>
-              <input
-                value={draft.style}
-                onChange={(event) => patch({ style: event.target.value })}
-                placeholder="Napoletana"
-                className="mt-1 w-full bg-transparent text-base outline-none placeholder:text-muted"
-              />
-            </label>
+            <ChipField
+              label="Style"
+              placeholder="Napoletana"
+              value={draft.style}
+              options={fields.styles}
+              onChange={(style) => patch({ style })}
+            />
           )}
 
           {fields.place && (
@@ -214,11 +201,11 @@ export default function NewEntryPage() {
         </div>
       )}
 
-      {step === "preview" && card && (
+      {step === "preview" && cardUrl && (
         <div className="animate-rise space-y-4 px-5 pt-5">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src={card.url}
+            src={cardUrl}
             alt="The picture that will be saved"
             className="w-full border border-rule"
           />

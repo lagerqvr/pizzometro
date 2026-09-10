@@ -10,7 +10,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "icons": "node scripts/icons.mjs"
+    "icons": "node scripts/icons.mjs",
+    "trips": "node scripts/trips.mjs"
   },
   "dependencies": {
     "@vercel/blob": "^2.8.0",

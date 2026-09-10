@@ -6,15 +6,15 @@
 
 A pizza-rating instrument. Built for a pizza trip to Napoli, 11–15.9.2026.
 
-Photograph the pizza, rate it 0–10, and the app stamps the score, name and
-place into the corner of a square picture ready for social media.
+Photograph the pizza, rate it 0–10, and the app stamps the score, place and
+name into the corner of a picture ready for social media.
 
 ## Running it
 
 ```bash
 npm install
 npm run dev        # http://localhost:3000
-npm test           # 160 unit, component and route tests
+npm test           # 273 unit, component and route tests
 npm run typecheck
 npm run build
 ```
@@ -23,14 +23,44 @@ npm run build
 
 **Local-first.** Ratings and photos live in IndexedDB on the device. There is
 no account, and the app works with no signal — the realistic case standing in
-a pizzeria on roaming data. `Setup → Export log` writes the ratings out as
-JSON.
+a pizzeria on roaming data.
 
-**A trip** is two phones sharing one log. One of them starts a trip, which is
-nothing but a ten-character code; the other opens the invite link and gives a
-name. Every rating then carries who made it, the log shows both, and the
-leaderboard ranks everything together *and* splits by person. Used alone, with
+**Getting the trip off a phone.** `Setup → Save all pictures` renders every
+stamped card and hands the lot to the share sheet in one go; because Safari
+only opens that sheet from a tap and rendering forty cards takes longer than
+a tap lasts, it builds first and saves on a second tap. `Export log` writes
+the ratings out as JSON, and `Erase this phone` drops the database and the
+app's localStorage keys, leaving a shared trip untouched — so the same trip
+code on a new phone pulls everything back.
+
+**A trip** is any number of phones sharing one log. One phone starts a trip, which is
+nothing but a ten-character code; the others open the invite link and give a
+name. Joining writes a member record, so somebody who has not rated yet still
+shows up on the roster. Every rating carries who made it, the log shows
+everyone's, and the leaderboard ranks them together *and* splits by person.
+
+Anyone on a trip can delete a rating — tidying the shared log is fair, and the
+confirmation names whose it is — but only its author can edit it. A score with
+your name on it should only ever have been typed by you. Used alone, with
 no trip, none of this appears and nothing leaves the phone.
+
+**Joining** checks the trip is there first. A code is the only thing a trip
+has, and writing to one that does not exist creates it — so a typo of the
+right shape would quietly start a second, empty trip rather than failing.
+
+**Your ratings follow you.** That one rule decides everything else. Leaving a
+trip takes your ratings off it and off everyone else's phones, and takes
+everyone else's off yours — what stays here is exactly what you made. The last
+person out therefore leaves nothing behind, so the trip is deleted with them.
+Erasing a phone is the same thing plus wiping it. There is no separate "clear
+the trip": with nobody on a trip, there is no trip.
+
+Withdrawing works by replacing each of your ratings in the store with a
+tombstone and deleting its photo, so the other phones drop them on their next
+sync. Rejoining bumps your own entries past that tombstone before pushing them
+— without it, the marker you left behind would come back and delete your own
+copies.
+
 
 **Syncing** runs on app open, on regaining signal, on returning to the screen
 and once a minute — never on the critical path of saving a rating. Local
@@ -41,14 +71,29 @@ phones cannot clobber each other, and a merge is decided by last-write-wins
 with deletes winning ties. A delete leaves a tombstone: without one, the entry
 comes straight back on the next pull.
 
-**Photos** are downscaled to 1600px and stored as raw bytes plus a MIME type
-rather than as `Blob` objects, which several Safari versions fail to hand
-back intact.
+**The viewfinder** asks for the whole sensor and steps down until the device
+agrees — a phone gives 4032px, a laptop webcam refuses outright rather than
+offering what it has, and the last rung asks only for a camera. It can mirror
+itself, and what it saves, so what you framed is what you keep. iOS never
+remembers camera permission for an installed web app, so Setup can hand the
+job to the camera app instead and stop the prompt on every launch.
 
-**The share picture** is drawn on a canvas at 1080², centre-cropped from the
-photo. The stamp is plain white monospace at one size — score, place, pizza —
-hard against a corner, with only a soft shadow so it survives a bright crust.
-The corner and which lines appear are configurable in Setup.
+**Photos** are kept at the camera's own resolution by default, or capped at
+1600px if `Setup → Photo quality` is set to balanced — roughly 3–6 MB against
+150 KB. There is only ever one copy: the saved picture is drawn at 1080px
+either way, so the choice is about the archive and about what travels over
+roaming data. Anything that is not already a JPEG is re-encoded, because an
+iPhone hands over HEIC and only Safari can read it. Bytes are stored as raw
+bytes plus a MIME type rather than as `Blob` objects, which several Safari
+versions fail to hand back intact.
+
+**The share picture** is drawn on a canvas 1080px along its longest side —
+centre-cropped to a square, or keeping the photo's own shape, as you like.
+The stamp is plain white monospace, one size for every line — score, place,
+pizza — hard against a corner with no panel, rule or shadow behind it. The
+corner, the text size, the picture's shape and which lines appear are all
+configurable in Setup, and the line budget follows the text size so a long
+pizzeria name can never run off the edge.
 
 **Saving to the camera roll**: iOS gives the web no API for writing directly
 to Photos, so the app opens the share sheet, where "Save Image" is the first
@@ -56,9 +101,13 @@ option. Android and desktop fall back to a normal download.
 
 **Location** comes from the phone's GPS, resolved through `/api/places`,
 which proxies OpenStreetMap (Overpass for nearby venues, Nominatim for text
-search). The proxy exists because those services want a real `User-Agent`
-that a browser cannot set, and it lets responses cache at the edge. A lookup
-failure never blocks a rating — typing the name always works.
+search). The proxy exists because those services want a real `User-Agent` a
+browser cannot set, and because the position is rounded to about 110 m before
+it is asked — everyone at the same table then asks one identical question the
+edge cache can answer once, which is also what keeps us inside Overpass's
+rate limit. A 429 is retried once and then falls back to Nominatim, a
+position that never arrives gives up after ten seconds, and a lookup failure
+never blocks a rating: typing the name always works.
 
 ## Layout
 
@@ -66,12 +115,15 @@ failure never blocks a rating — typing the name always works.
 | --- | --- |
 | `src/app/page.tsx` | The log, newest first, plus the `+` button |
 | `src/app/new/page.tsx` | Shoot → rate → preview → save |
-| `src/app/leaderboard/page.tsx` | Ranked board |
-| `src/app/settings/page.tsx` | Trip, stamp corner, stamp fields, camera guides |
+| `src/app/entry/page.tsx` | One rating: review, edit, save the picture |
+| `src/app/leaderboard/page.tsx` | Ranked board, split by person |
+| `src/app/settings/page.tsx` | Trip, picture shape, stamp, camera, the scale, data |
 | `src/app/join/page.tsx` | The other end of an invite link |
 | `src/app/api/trip/[code]/` | Push and pull against the shared blob store |
 | `src/lib/` | Pure domain logic — scoring, entries, card layout, places |
 | `src/lib/merge.ts` | Merge rules for the shared log |
+| `src/lib/bulk.ts` | Saving every picture at once |
+| `src/lib/wipe.ts` | Taking the app off a phone |
 | `src/lib/sync.ts` | The sync engine and its state |
 | `src/lib/render.ts` | Canvas drawing (browser only) |
 
@@ -81,12 +133,29 @@ directly; the components stay thin.
 ## Deploying
 
 Sync needs one thing on Vercel: a Blob store attached to the project, which
-sets `BLOB_READ_WRITE_TOKEN`. Without it the trip endpoints answer 503 and the
-app quietly stays local — no crashes, no lost ratings.
+sets `BLOB_READ_WRITE_TOKEN`. Without it the trip endpoints answer 503, the
+app says so once and stays local — no crashes, no lost ratings, no repeated
+nagging.
+
+```bash
+npm run trips                  # every trip in the store, and what it holds
+npm run trips -- clear <code>  # empty one
+npm run trips -- clear --all   # empty the store
+```
+
+Emptying trips lives in the CLI rather than the app because it needs the
+store's own token. The app can only clear a trip whose code it already holds:
+the code is the only credential a trip has, and an endpoint that wiped
+everything would need nothing but the URL.
 
 ## Icons
 
-`npm run icons` regenerates the PWA icon set from the SVG masters in
-`public/`. The mark is one disc with a single slice cut out of
-it: ink disc on paper in the app, inverted to a paper disc on ink for the
-app icon and favicon.
+Two masters live in `public/`: `pizzometro.svg` is the bare mark, inlined in
+the header and served as the favicon, and `pizzometro_app.svg` is the same
+mark on its near-black tile, which is what an installed app shows.
+`npm run icons` renders every PNG size from them and copies the bare mark to
+`src/app/icon.svg`, so the mark is only ever edited in one place. The
+maskable variant scales the art into the 80% safe circle.
+
+Brand colours are `#BF360C` and `#E65100` on `#212121`, kept in `globals.css`
+as `--color-accent`, `--color-accent-warm` and `--color-ink`.

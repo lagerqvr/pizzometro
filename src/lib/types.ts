@@ -75,9 +75,22 @@ export type StampFields = {
 
 export type Corner = "tl" | "tr" | "bl" | "br";
 
+/** How big the text sits on the saved picture. */
+export type StampSize = "s" | "m" | "l";
+
+/**
+ * What gets kept of a photo. `full` keeps the camera's own resolution, which
+ * is the only copy that ever exists — the original file is not retained
+ * separately. `balanced` caps the long side at 1600px, which is still more
+ * than the 1080px picture needs and about a twentieth of the bytes.
+ */
+export type PhotoQuality = "balanced" | "full";
+
 export type Settings = {
   /** Where the stats block sits on the generated picture. */
   stampCorner: Corner;
+  /** How big that block is. */
+  stampSize: StampSize;
   /** Rule-of-thirds + centering circle in the camera view. */
   cameraGuides: boolean;
   /**
@@ -87,6 +100,14 @@ export type Settings = {
    * needs none.
    */
   systemCamera: boolean;
+  /**
+   * Flip the viewfinder, and the picture it takes, left to right. What you
+   * see while framing is then what gets saved.
+   */
+  mirrorCamera: boolean;
+  /** Crop the saved picture to a square, rather than keeping its shape. */
+  squareCrop: boolean;
+  photoQuality: PhotoQuality;
   /** Include each field on the generated picture. */
   stamp: {
     name: boolean;
@@ -98,8 +119,12 @@ export type Settings = {
 
 export const DEFAULT_SETTINGS: Settings = {
   stampCorner: "tl",
+  stampSize: "m",
   cameraGuides: true,
   systemCamera: false,
+  mirrorCamera: true,
+  squareCrop: true,
+  photoQuality: "full",
   // The date is off by default: the picture reads better as three lines.
   stamp: { name: true, rating: true, place: true, date: false },
 };

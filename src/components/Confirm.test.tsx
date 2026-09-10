@@ -63,3 +63,79 @@ describe("ConfirmProvider", () => {
     expect(screen.queryByRole("button", { name: "DELETE" })).toBeNull();
   });
 });
+
+describe("a confirmation that must be typed out", () => {
+  function Typed({ onAnswer }: { onAnswer: (ok: boolean) => void }) {
+    const confirm = useConfirm();
+    return (
+      <button
+        type="button"
+        onClick={async () =>
+          onAnswer(
+            await confirm({
+              title: "Clear this trip?",
+              action: "CLEAR",
+              destructive: true,
+              confirmText: "clear",
+            }),
+          )
+        }
+      >
+        open
+      </button>
+    );
+  }
+
+  it("keeps the action out of reach until the word is right", async () => {
+    const answers: boolean[] = [];
+    render(
+      <ConfirmProvider>
+        <Typed onAnswer={(ok) => answers.push(ok)} />
+      </ConfirmProvider>,
+    );
+    const user = userEvent.setup();
+    await user.click(screen.getByText("open"));
+
+    const action = screen.getByRole("button", { name: "CLEAR" });
+    expect(action).toBeDisabled();
+
+    await user.type(screen.getByRole("textbox"), "clea");
+    expect(action).toBeDisabled();
+
+    await user.type(screen.getByRole("textbox"), "r");
+    expect(action).toBeEnabled();
+
+    await user.click(action);
+    await waitFor(() => expect(answers).toEqual([true]));
+  });
+
+  it("forgives capitals and stray spaces", async () => {
+    render(
+      <ConfirmProvider>
+        <Typed onAnswer={() => {}} />
+      </ConfirmProvider>,
+    );
+    const user = userEvent.setup();
+    await user.click(screen.getByText("open"));
+
+    await user.type(screen.getByRole("textbox"), "  CLEAR ");
+    expect(screen.getByRole("button", { name: "CLEAR" })).toBeEnabled();
+  });
+
+  it("starts empty again the next time it is asked", async () => {
+    render(
+      <ConfirmProvider>
+        <Typed onAnswer={() => {}} />
+      </ConfirmProvider>,
+    );
+    const user = userEvent.setup();
+
+    await user.click(screen.getByText("open"));
+    await user.type(screen.getByRole("textbox"), "clear");
+    await user.click(screen.getByRole("button", { name: "CLEAR" }));
+
+    await user.click(screen.getByText("open"));
+    expect(screen.getByRole("textbox")).toHaveValue("");
+    expect(screen.getByRole("button", { name: "CLEAR" })).toBeDisabled();
+  });
+});

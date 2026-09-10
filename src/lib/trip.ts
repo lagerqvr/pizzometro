@@ -7,6 +7,8 @@ import type { Rater, Trip } from "./types";
  */
 const TRIP_KEY = "pizzometro:trip";
 const RATER_KEY = "pizzometro:rater-id";
+const MEMBER_KEY = "pizzometro:member";
+const ROSTER_KEY = "pizzometro:roster";
 const MARK_KEY = "pizzometro:sync";
 const ALPHABET = "abcdefghijkmnpqrstuvwxyz23456789"; // No l/o/0/1 to read aloud.
 const CODE_LENGTH = 10;
@@ -128,4 +130,58 @@ export function resetMark(): void {
 
 export function joinLink(code: string, origin: string): string {
   return `${origin.replace(/\/$/, "")}/join?trip=${code}`;
+}
+
+/**
+ * Announcing yourself to a trip is a single small write, so it happens once
+ * — unless the trip or the name changes, which is exactly when it should
+ * happen again.
+ */
+function fingerprint(trip: Trip): string {
+  return `${trip.code}:${trip.rater.id}:${trip.rater.name}`;
+}
+
+export function needsRegistration(trip: Trip): boolean {
+  if (typeof localStorage === "undefined") return false;
+  return localStorage.getItem(MEMBER_KEY) !== fingerprint(trip);
+}
+
+export function markRegistered(trip: Trip): void {
+  if (typeof localStorage === "undefined") return;
+  localStorage.setItem(MEMBER_KEY, fingerprint(trip));
+}
+
+/**
+ * The roster is kept so the names are there before the first sync lands —
+ * and stored against the trip it belongs to, so starting a new one cannot
+ * inherit the last one's people.
+ */
+export function loadRoster(code: string): Rater[] {
+  if (typeof localStorage === "undefined") return [];
+  try {
+    const parsed = JSON.parse(localStorage.getItem(ROSTER_KEY) ?? "null");
+    if (!parsed || parsed.code !== code || !Array.isArray(parsed.members)) {
+      return [];
+    }
+    return parsed.members.filter(
+      (item: unknown): item is Rater =>
+        Boolean(item) &&
+        typeof (item as Rater).id === "string" &&
+        typeof (item as Rater).name === "string",
+    );
+  } catch {
+    return [];
+  }
+}
+
+export function saveRoster(code: string, members: Rater[]): void {
+  if (typeof localStorage === "undefined") return;
+  localStorage.setItem(ROSTER_KEY, JSON.stringify({ code, members }));
+}
+
+/** Leaving forgets who was on it, and that this phone ever announced itself. */
+export function clearMembership(): void {
+  if (typeof localStorage === "undefined") return;
+  localStorage.removeItem(ROSTER_KEY);
+  localStorage.removeItem(MEMBER_KEY);
 }

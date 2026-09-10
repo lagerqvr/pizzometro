@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   byRater,
+  othersRatings,
   changesFrom,
   claim,
   isMine,
@@ -104,6 +105,25 @@ describe("claim", () => {
     expect(claimed.updatedAt).toBe(9_000);
   });
 
+  it("bumps one that is already yours, so a tombstone cannot outrank it", () => {
+    // Leaving left a tombstone at 5_000; rejoining has to beat it.
+    const old = entry({ id: "a", rater: rasmus, updatedAt: 1_000 });
+    const rejoined = claim(old, rasmus, 9_000);
+    expect(rejoined.updatedAt).toBe(9_000);
+    expect(changesFrom([rejoined], [{ ...old, deleted: true, updatedAt: 5_000 }])).toEqual(
+      [],
+    );
+  });
+
+  it("sends the photo up again, since withdrawing deleted it", () => {
+    const uploaded = entry({
+      id: "a",
+      rater: rasmus,
+      photoUrl: "https://s.public.blob.vercel-storage.com/p.jpg",
+    });
+    expect(claim(uploaded, rasmus, 9_000).photoUrl).toBeUndefined();
+  });
+
   it("leaves somebody else's entry exactly as it was", () => {
     const theirs = entry({ id: "a", rater: axel });
     expect(claim(theirs, rasmus, 9_000)).toBe(theirs);
@@ -147,5 +167,28 @@ describe("ratersOf / byRater", () => {
   it("splits the board by person, and null keeps everything", () => {
     expect(byRater(entries, rasmus.id).map((item) => item.id)).toEqual(["a", "c"]);
     expect(byRater(entries, null)).toHaveLength(4);
+  });
+});
+
+describe("othersRatings", () => {
+  it("picks out what belongs to the other people on the trip", () => {
+    const entries = [
+      entry({ id: "mine", rater: rasmus }),
+      entry({ id: "theirs", rater: axel }),
+      entry({ id: "before-the-trip" }),
+    ];
+    expect(othersRatings(entries, rasmus).map((item) => item.id)).toEqual([
+      "theirs",
+    ]);
+  });
+
+  it("keeps ratings made before there was a trip", () => {
+    // No rater means it was made on this phone, alone.
+    expect(othersRatings([entry({ id: "solo" })], rasmus)).toEqual([]);
+  });
+
+  it("finds nothing to let go of when nobody else has rated", () => {
+    const mine = [entry({ id: "a", rater: rasmus }), entry({ id: "b", rater: rasmus })];
+    expect(othersRatings(mine, rasmus)).toEqual([]);
   });
 });

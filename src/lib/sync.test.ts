@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { IDBFactory } from "fake-indexeddb";
 import * as db from "./db";
-import { getSyncState, subscribeEntries, syncNow } from "./sync";
-import { loadMark, saveTrip } from "./trip";
+import { getSyncState, subscribeEntries, syncNow, tripExists } from "./sync";
+import { loadMark, loadRoster, saveTrip } from "./trip";
 import type { Entry } from "./types";
 
 const CODE = "abcdef2345";
@@ -21,8 +21,9 @@ function entry(id: string, patch: Partial<Entry> = {}): Entry {
 }
 
 /** A fake trip endpoint: records what was pushed, replies with `serves`. */
-function endpoint(serves: Entry[] = [], now = 5_000) {
+function endpoint(serves: Entry[] = [], now = 5_000, members: unknown[] = []) {
   const pushed: Entry[][] = [];
+  const announced: unknown[] = [];
   const photos: string[] = [];
   const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
     if (url.includes("/photos/")) {
@@ -35,15 +36,17 @@ function endpoint(serves: Entry[] = [], now = 5_000) {
       );
     }
     if (init?.method === "POST") {
-      pushed.push(JSON.parse(String(init.body)).entries);
+      const body = JSON.parse(String(init.body));
+      pushed.push(body.entries);
+      if (body.member) announced.push(body.member);
       return new Response(JSON.stringify({ saved: 1, now }), { status: 200 });
     }
-    return new Response(JSON.stringify({ entries: serves, now }), {
+    return new Response(JSON.stringify({ entries: serves, members, now }), {
       status: 200,
     });
   });
   vi.stubGlobal("fetch", fetchMock);
-  return { pushed, photos, fetchMock };
+  return { pushed, announced, photos, fetchMock };
 }
 
 function setOnline(online: boolean) {
@@ -242,5 +245,94 @@ describe("when the trip cannot be reached", () => {
 
     expect(getSyncState()).toMatchObject({ status: "error", pending: 1 });
     expect(loadMark().pushedAt).toBe(0);
+  });
+});
+
+describe("joining a trip", () => {
+  it("announces this phone even with nothing to push", async () => {
+    saveTrip({ code: CODE, rater });
+    const { announced, pushed } = endpoint();
+
+    await syncNow();
+
+    // No ratings yet, but the trip is told somebody is here.
+    expect(pushed[0]).toEqual([]);
+    expect(announced).toEqual([rater]);
+  });
+
+  it("announces itself once, not on every sync", async () => {
+    saveTrip({ code: CODE, rater });
+    const first = endpoint();
+    await syncNow();
+    expect(first.announced).toHaveLength(1);
+
+    const second = endpoint();
+    await syncNow();
+    expect(second.announced).toHaveLength(0);
+  });
+
+  it("announces again under a new name", async () => {
+    saveTrip({ code: CODE, rater });
+    endpoint();
+    await syncNow();
+
+    saveTrip({ code: CODE, rater: { ...rater, name: "Ras" } });
+    const renamed = endpoint();
+    await syncNow();
+
+    expect(renamed.announced).toEqual([{ ...rater, name: "Ras" }]);
+  });
+
+  it("does not hand one trip's people to the next", async () => {
+    saveTrip({ code: CODE, rater });
+    endpoint([], 5_000, [rater, { id: "r-axel", name: "Axel" }]);
+    await syncNow();
+    expect(getSyncState().members).toHaveLength(2);
+
+    // A different trip: the stored roster belongs to the old one.
+    expect(loadRoster("othercode1")).toEqual([]);
+  });
+
+  it("keeps the roster the trip sends back", async () => {
+    saveTrip({ code: CODE, rater });
+    const people = [rater, { id: "r-axel", name: "Axel" }];
+    endpoint([], 5_000, people);
+
+    await syncNow();
+
+    expect(getSyncState().members).toEqual(people);
+    // And remembers it for the next start, before any sync has finished.
+    expect(loadRoster(CODE)).toEqual(people);
+  });
+});
+
+describe("tripExists", () => {
+  it("is true for a trip somebody is on, or has rated in", async () => {
+    endpoint([], 5_000, [rater]);
+    await expect(tripExists(CODE)).resolves.toBe(true);
+
+    endpoint([entry("a")], 5_000, []);
+    await expect(tripExists(CODE)).resolves.toBe(true);
+  });
+
+  it("is false for a code nobody has ever used", async () => {
+    // Exactly what a typo of the right shape looks like.
+    endpoint([], 5_000, []);
+    await expect(tripExists("zzzzzzzzzz")).resolves.toBe(false);
+  });
+
+  it("throws rather than answering when it cannot ask", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => {
+      throw new TypeError("offline");
+    }));
+    await expect(tripExists(CODE)).rejects.toThrow();
+  });
+
+  it("throws on a refusal, which is not the same as an empty trip", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response("nope", { status: 503 })),
+    );
+    await expect(tripExists(CODE)).rejects.toThrow();
   });
 });

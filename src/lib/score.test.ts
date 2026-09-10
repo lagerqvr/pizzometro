@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { byRecent, formatRating, rank, stats, verdict } from "./score";
+import {
+  byRecent,
+  formatRating,
+  rank,
+  scaleBands,
+  stats,
+  verdict,
+} from "./score";
 import type { Entry } from "./types";
 
 function entry(partial: Partial<Entry> & { id: string }): Entry {
@@ -113,5 +120,26 @@ describe("stats", () => {
   it("ignores entries with no place when counting places", () => {
     const result = stats([entry({ id: "a", kind: "homemade" })]);
     expect(result.places).toBe(0);
+  });
+});
+
+describe("scaleBands", () => {
+  it("covers 0 to 10 with no gap and no overlap", () => {
+    const bands = scaleBands();
+    expect(bands[0].range).toBe("9.5–10");
+    expect(bands.at(-1)?.range).toBe("0–3.4");
+
+    // Each band starts exactly where the one above it stops.
+    const edges = bands.map((band) => band.range.split("–").map(Number));
+    for (let i = 1; i < edges.length; i += 1) {
+      expect(edges[i - 1][0] - edges[i][1]).toBeCloseTo(0.1, 5);
+    }
+  });
+
+  it("says the same words the ratings do", () => {
+    for (const band of scaleBands()) {
+      const low = Number(band.range.split("–")[0]);
+      expect(verdict(low)).toBe(band.word);
+    }
   });
 });

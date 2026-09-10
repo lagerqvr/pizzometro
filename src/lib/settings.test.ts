@@ -31,6 +31,26 @@ describe("parseSettings", () => {
     expect(parseSettings('{"systemCamera":"yes"}').systemCamera).toBe(false);
   });
 
+  it("keeps full-quality photos unless told otherwise", () => {
+    expect(parseSettings("{}").photoQuality).toBe("full");
+    expect(parseSettings('{"photoQuality":"balanced"}').photoQuality).toBe(
+      "balanced",
+    );
+    // Anything else is not a quality.
+    expect(parseSettings('{"photoQuality":"tiny"}').photoQuality).toBe("full");
+  });
+
+  it("defaults to a mirrored camera and square pictures", () => {
+    expect(parseSettings("{}").mirrorCamera).toBe(true);
+    expect(parseSettings("{}").squareCrop).toBe(true);
+  });
+
+  it("keeps those two once they are turned off", () => {
+    const parsed = parseSettings('{"mirrorCamera":false,"squareCrop":false}');
+    expect(parsed.mirrorCamera).toBe(false);
+    expect(parsed.squareCrop).toBe(false);
+  });
+
   it("fills in stamp fields missing from an older stored shape", () => {
     const parsed = parseSettings('{"stamp":{"rating":false,"date":true}}');
     expect(parsed.stamp.rating).toBe(false);

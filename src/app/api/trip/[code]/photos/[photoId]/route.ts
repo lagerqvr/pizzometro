@@ -10,8 +10,11 @@ import { isSafeId, photoPath } from "@/lib/wire";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-/** Photos are downscaled to 1600px before they get here; this is slack. */
-const MAX_BYTES = 8 * 1024 * 1024;
+/**
+ * A full-quality 12-megapixel JPEG runs to about 6 MB; this leaves room for
+ * a bigger sensor without letting anything absurd through.
+ */
+const MAX_BYTES = 24 * 1024 * 1024;
 const TYPES = ["image/jpeg", "image/png", "image/webp"];
 
 export async function POST(

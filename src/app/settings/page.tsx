@@ -4,11 +4,64 @@ import { useCallback, useState } from "react";
 import { TripFooter, Wordmark } from "@/components/Wordmark";
 import { useConfirm } from "@/components/Confirm";
 import { useSnackbar } from "@/components/Snackbar";
-import { useSettings, useSync, useTrip } from "@/lib/hooks";
+import { useEntries, useSettings, useSync, useTrip } from "@/lib/hooks";
+import { othersRatings, ratersOf } from "@/lib/merge";
+import { scaleBands } from "@/lib/score";
 import { exportEntries } from "@/lib/db";
-import { syncNow, type SyncState } from "@/lib/sync";
-import { isTripCode, joinLink, newTripCode, normaliseCode } from "@/lib/trip";
-import type { Corner } from "@/lib/types";
+import {
+  buildCards,
+  bulkMessage,
+  photographed,
+  saveAll,
+  type BulkProgress,
+} from "@/lib/bulk";
+import { eraseDevice } from "@/lib/wipe";
+import {
+  clearTrip,
+  syncNow,
+  tripExists,
+  withdrawFrom,
+  type SyncState,
+} from "@/lib/sync";
+import {
+  isTripCode,
+  joinLink,
+  loadRoster,
+  newTripCode,
+  normaliseCode,
+} from "@/lib/trip";
+import type {
+  Corner,
+  Entry,
+  PhotoQuality,
+  Rater,
+  StampSize,
+} from "@/lib/types";
+
+/** The whole log as a file. Used by the button, and before anything destructive. */
+async function downloadLog(): Promise<void> {
+  const json = await exportEntries();
+  const blob = new Blob([json], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `pizzometro-log-${new Date().toISOString().slice(0, 10)}.json`;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 10_000);
+}
+
+const QUALITIES: Array<{ value: PhotoQuality; label: string; hint: string }> = [
+  { value: "balanced", label: "BALANCED", hint: "1600px · ~150 KB each" },
+  { value: "full", label: "FULL", hint: "As shot · ~3–6 MB each" },
+];
+
+const SIZES: Array<{ value: StampSize; label: string }> = [
+  { value: "s", label: "SMALL" },
+  { value: "m", label: "MEDIUM" },
+  { value: "l", label: "LARGE" },
+];
 
 const CORNERS: Array<{ value: Corner; label: string }> = [
   { value: "tl", label: "Top left" },
@@ -26,14 +79,7 @@ export default function SettingsPage() {
   const exportJson = useCallback(async () => {
     setExporting(true);
     try {
-      const json = await exportEntries();
-      const blob = new Blob([json], { type: "application/json" });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = "pizzometro-log.json";
-      link.click();
-      setTimeout(() => URL.revokeObjectURL(url), 10_000);
+      await downloadLog();
       snack("Log exported (ratings only, no photos)");
     } catch {
       snack("Could not export the log", "warn");
@@ -47,6 +93,52 @@ export default function SettingsPage() {
       <Wordmark subtitle="Setup" />
 
       <TripSection />
+
+      <section className="mt-8 px-5">
+        <h2 className="label">Picture</h2>
+        <div className="mt-2">
+          <Toggle
+            label="Square pictures"
+            hint="Off keeps the photo's own shape instead of cropping it square"
+            checked={settings.squareCrop}
+            onChange={(squareCrop) => update({ squareCrop })}
+          />
+        </div>
+
+        <h2 className="label mt-6">Photo quality</h2>
+        <p className="mt-1 text-xs leading-relaxed text-muted">
+          What is kept of each photo. This is the only copy — the saved picture
+          is always 1080px either way, so this is about the archive, and about
+          how much goes up and down over roaming data.
+        </p>
+        <div className="mt-3 grid grid-cols-2 gap-px border border-ink bg-ink">
+          {QUALITIES.map((quality) => {
+            const active = settings.photoQuality === quality.value;
+            return (
+              <button
+                key={quality.value}
+                type="button"
+                aria-pressed={active}
+                onClick={() => update({ photoQuality: quality.value })}
+                className={`px-2 py-3 transition-colors ${
+                  active ? "bg-ink text-paper" : "bg-paper text-ink"
+                }`}
+              >
+                <span className="block text-[0.625rem] tracking-[0.16em]">
+                  {quality.label}
+                </span>
+                <span
+                  className={`mt-0.5 block text-[0.625rem] ${
+                    active ? "text-paper/60" : "text-muted"
+                  }`}
+                >
+                  {quality.hint}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </section>
 
       <section className="mt-8 px-5">
         <h2 className="label">Stats placement</h2>
@@ -110,6 +202,31 @@ export default function SettingsPage() {
       </section>
 
       <section className="mt-8 px-5">
+        <h2 className="label">Text size</h2>
+        <p className="mt-1 text-xs text-muted">
+          How big the stats sit on the saved picture.
+        </p>
+        <div className="mt-3 grid grid-cols-3 gap-px border border-ink bg-ink">
+          {SIZES.map((size) => {
+            const active = settings.stampSize === size.value;
+            return (
+              <button
+                key={size.value}
+                type="button"
+                aria-pressed={active}
+                onClick={() => update({ stampSize: size.value })}
+                className={`py-3 text-[0.625rem] tracking-[0.16em] transition-colors ${
+                  active ? "bg-ink text-paper" : "bg-paper text-ink"
+                }`}
+              >
+                {size.label}
+              </button>
+            );
+          })}
+        </div>
+      </section>
+
+      <section className="mt-8 px-5">
         <h2 className="label">Stamp on picture</h2>
         <div className="mt-2">
           {(
@@ -142,6 +259,12 @@ export default function SettingsPage() {
             onChange={(cameraGuides) => update({ cameraGuides })}
           />
           <Toggle
+            label="Mirror the camera"
+            hint="The viewfinder and the picture it takes are flipped left to right, so what you frame is what you keep"
+            checked={settings.mirrorCamera}
+            onChange={(mirrorCamera) => update({ mirrorCamera })}
+          />
+          <Toggle
             label="Use the camera app"
             hint="Skips the built-in viewfinder. iOS forgets camera permission every time an installed web app is opened, so this is the way to stop it asking."
             checked={settings.systemCamera}
@@ -151,24 +274,82 @@ export default function SettingsPage() {
       </section>
 
       <section className="mt-8 px-5">
+        <h2 className="label">The scale</h2>
+        <p className="mt-1 text-xs leading-relaxed text-muted">
+          The word under a rating, and what it is supposed to mean.
+        </p>
+        <dl className="mt-2">
+          {scaleBands().map((band) => (
+            <div
+              key={band.word}
+              className="flex items-baseline justify-between gap-3 border-b border-dashed border-rule py-2"
+            >
+              <dt className="shrink-0">
+                <span className="block text-[0.6875rem] tracking-[0.16em]">
+                  {band.word}
+                </span>
+                <span className="block text-[0.625rem] tabular-nums text-muted">
+                  {band.range}
+                </span>
+              </dt>
+              <dd className="text-right text-xs text-muted">{band.meaning}</dd>
+            </div>
+          ))}
+        </dl>
+      </section>
+
+      <section className="mt-8 px-5">
         <h2 className="label">Data</h2>
         <p className="mt-1 text-xs leading-relaxed text-muted">
           {trip
-            ? "Ratings and photos live on this phone and in the shared trip. The log below is a plain backup either way."
-            : "Ratings and photos live on this device only. Nothing is uploaded."}
+            ? "Ratings and photos live on this phone and in the shared trip. Moving to a new phone means joining the trip again — everything comes back."
+            : "Ratings and photos live on this device only. Nothing is uploaded, so these are the only copies."}
         </p>
+
+        <PictureBackup />
+
         <button
           type="button"
           onClick={exportJson}
           disabled={exporting}
-          className="mt-3 w-full border border-ink py-3.5 text-[0.6875rem] tracking-[0.22em] disabled:opacity-40"
+          className="mt-2 w-full border border-ink py-3.5 text-[0.6875rem] tracking-[0.22em] disabled:opacity-40"
         >
           {exporting ? "EXPORTING…" : "EXPORT LOG (JSON)"}
         </button>
+
+        <EraseButton />
       </section>
 
       <TripFooter />
     </main>
+  );
+}
+
+/**
+ * Who is on the trip now. The roster is the answer once there is one —
+ * folding in everyone who has ever rated would keep a person on the list
+ * forever, since leaving takes their name off the trip but leaves their
+ * ratings in it. Before the first sync lands there is no roster, and the
+ * ratings are the best guess available.
+ */
+export function onTrip(
+  members: Rater[],
+  entries: Entry[],
+  me: string,
+): string[] {
+  const names =
+    members.length > 0
+      ? members.map((member) => member.name)
+      : ratersOf(entries).map((rater) => rater.name);
+  return [...new Set([...names, me])];
+}
+
+/** A trip code set the way the app sets one, inside a sentence. */
+function Code({ children }: { children: React.ReactNode }) {
+  return (
+    <span className="font-[family-name:var(--font-type)] font-bold tracking-[0.14em] text-ink">
+      {children}
+    </span>
   );
 }
 
@@ -204,6 +385,7 @@ function statusLine(sync: SyncState): string {
  */
 function TripSection() {
   const { trip, join, leave } = useTrip();
+  const { entries } = useEntries();
   const sync = useSync();
   const snack = useSnackbar();
   const confirm = useConfirm();
@@ -212,14 +394,33 @@ function TripSection() {
   const [busy, setBusy] = useState(false);
 
   const start = useCallback(
-    async (tripCode: string) => {
+    async (tripCode: string, mustExist: boolean) => {
       if (busy) return;
       setBusy(true);
       try {
+        if (mustExist) {
+          // A code is the only thing a trip has, so a typo of the right
+          // shape would otherwise quietly start a second, empty one.
+          let exists: boolean;
+          try {
+            exists = await tripExists(tripCode);
+          } catch {
+            snack("Could not check that code — try again with signal", "warn");
+            return;
+          }
+          if (!exists) {
+            snack("No trip with that code — check it and try again", "warn");
+            return;
+          }
+        }
         await join(tripCode, name);
-        snack("Trip started — send the link to the other phone");
+        snack(
+          mustExist
+            ? "Joined the trip"
+            : "Trip started — send the code to the others",
+        );
       } catch {
-        snack("Could not start the trip", "warn");
+        snack(mustExist ? "Could not join" : "Could not start the trip", "warn");
       } finally {
         setBusy(false);
       }
@@ -227,21 +428,22 @@ function TripSection() {
     [busy, join, name, snack],
   );
 
-  const copyLink = useCallback(async () => {
-    if (!trip) return;
-    const link = joinLink(trip.code, window.location.origin);
-    try {
-      await navigator.clipboard.writeText(link);
-      snack("Invite link copied");
-    } catch {
-      // Clipboard is blocked in some in-app browsers; the sheet still works.
+  /** Copies, or falls back to the share sheet where the clipboard is blocked. */
+  const copy = useCallback(
+    async (text: string, what: string) => {
       try {
-        await navigator.share({ url: link, title: "Pizzometro" });
+        await navigator.clipboard.writeText(text);
+        snack(`${what} copied`);
       } catch {
-        snack(link);
+        try {
+          await navigator.share({ text, title: "Pizzometro" });
+        } catch {
+          snack(text);
+        }
       }
-    }
-  }, [trip, snack]);
+    },
+    [snack],
+  );
 
   if (!trip) {
     const typed = normaliseCode(code);
@@ -267,25 +469,25 @@ function TripSection() {
         <button
           type="button"
           disabled={busy || name.trim().length === 0}
-          onClick={() => start(newTripCode())}
+          onClick={() => start(newTripCode(), false)}
           className="mt-3 w-full bg-ink py-3.5 text-[0.6875rem] tracking-[0.22em] text-paper disabled:opacity-40"
         >
           {busy ? "WORKING…" : "START A TRIP"}
         </button>
 
-        <div className="mt-4 flex items-center gap-2">
+        <div className="mt-4 flex items-stretch gap-2">
           <input
             value={code}
             onChange={(event) => setCode(event.target.value)}
             placeholder="TRIP CODE"
             maxLength={16}
-            className="plate min-w-0 flex-1 px-4 py-3 text-base tracking-[0.14em] outline-none placeholder:text-muted"
+            className="plate h-12 min-w-0 flex-1 px-4 text-base tracking-[0.14em] outline-none placeholder:text-muted"
           />
           <button
             type="button"
             disabled={busy || !isTripCode(typed) || name.trim().length === 0}
-            onClick={() => start(typed)}
-            className="shrink-0 border border-ink px-5 py-3 text-[0.6875rem] tracking-[0.22em] disabled:opacity-40"
+            onClick={() => start(typed, true)}
+            className="h-12 shrink-0 border border-ink px-5 text-[0.6875rem] tracking-[0.22em] disabled:opacity-40"
           >
             JOIN
           </button>
@@ -308,43 +510,234 @@ function TripSection() {
         </p>
       </div>
 
+      <p className="mt-2 text-xs leading-relaxed text-muted">
+        On this trip:{" "}
+        {onTrip(
+          sync.members.length > 0 ? sync.members : loadRoster(trip.code),
+          entries ?? [],
+          trip.rater.name,
+        ).join(", ")}
+        . Anyone with the code can join.
+      </p>
+
+      {/* Both ways of passing a trip on: the link when you can send one, the
+          code when you are reading it out across a table. */}
       <div className="mt-3 grid grid-cols-2 gap-2">
         <button
           type="button"
-          onClick={copyLink}
-          className="border border-ink py-3.5 text-[0.6875rem] tracking-[0.22em]"
+          onClick={() => void copy(trip.code, "Trip code")}
+          className="flex items-center justify-center gap-2 border border-ink py-3.5 text-[0.6875rem] tracking-[0.18em]"
         >
-          COPY LINK
+          <svg aria-hidden viewBox="0 0 16 16" className="h-3.5 w-3.5">
+            <rect
+              x="5.5"
+              y="2.5"
+              width="8"
+              height="8"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.2"
+            />
+            <path
+              d="M10.5 13.5h-8v-8"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.2"
+            />
+          </svg>
+          CODE
         </button>
         <button
           type="button"
-          onClick={() => void syncNow(true)}
-          disabled={sync.status === "syncing"}
-          className="border border-ink py-3.5 text-[0.6875rem] tracking-[0.22em] disabled:opacity-40"
+          onClick={() =>
+            void copy(joinLink(trip.code, window.location.origin), "Invite link")
+          }
+          className="flex items-center justify-center gap-2 border border-ink py-3.5 text-[0.6875rem] tracking-[0.18em]"
         >
-          {sync.status === "syncing" ? "SYNCING…" : "SYNC NOW"}
+          <svg aria-hidden viewBox="0 0 16 16" className="h-3.5 w-3.5">
+            <path
+              d="M6.5 9.5a3 3 0 0 0 4.2 0l2-2a3 3 0 0 0-4.2-4.2l-1 1M9.5 6.5a3 3 0 0 0-4.2 0l-2 2a3 3 0 0 0 4.2 4.2l1-1"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.2"
+              strokeLinecap="round"
+            />
+          </svg>
+          LINK
         </button>
       </div>
 
       <button
         type="button"
+        onClick={() => void syncNow(true)}
+        disabled={sync.status === "syncing"}
+        className="mt-2 w-full border border-ink py-3.5 text-[0.6875rem] tracking-[0.22em] disabled:opacity-40"
+      >
+        {sync.status === "syncing" ? "SYNCING…" : "SYNC NOW"}
+      </button>
+
+      <button
+        type="button"
         onClick={async () => {
+          const theirs = othersRatings(entries ?? [], trip.rater).length;
+          const mine = (entries ?? []).length - theirs;
+          const alone = sync.members.length <= 1;
+
           const sure = await confirm({
-            title: "Leave the trip?",
-            body: "Every rating stays on this phone. You can join again with the same code.",
-            action: "LEAVE",
+            title: alone ? "Leave and delete the trip?" : "Leave the trip?",
+            body: alone ? (
+              <>
+                Nobody else is on <Code>{trip.code}</Code>, so it goes with
+                you. Your {mine} {mine === 1 ? "rating" : "ratings"} stay on
+                this phone, and nothing is left behind in the trip.
+              </>
+            ) : (
+              <>
+                Your ratings come off the trip and off everyone else&rsquo;s
+                phones — they stay on this one.
+                {theirs > 0 && (
+                  <>
+                    {" "}
+                    The {theirs} from other people come off this phone.
+                  </>
+                )}{" "}
+                Joining again with <Code>{trip.code}</Code> puts yours back.
+              </>
+            ),
+            action: alone ? "LEAVE & DELETE" : "LEAVE",
             destructive: true,
           });
-          if (sure) {
-            leave();
-            snack("Left the trip");
+          if (!sure) return;
+
+          try {
+            // The one case where something could be here and nowhere else:
+            // a trip holding ratings whose owner never left it.
+            if (alone && theirs > 0) await downloadLog().catch(() => {});
+            await leave(alone);
+            snack(alone ? "Trip deleted" : "Left the trip");
+          } catch {
+            snack("Could not leave — try again with signal", "warn");
           }
         }}
-        className="mt-2 w-full border border-rule py-3.5 text-[0.6875rem] tracking-[0.22em] text-muted"
+        className="mt-2 w-full border border-accent/40 py-3.5 text-[0.6875rem] tracking-[0.22em] text-accent/80"
       >
         LEAVE TRIP
       </button>
     </section>
+  );
+}
+
+/**
+ * The whole trip to the camera roll. Safari only opens the share sheet from
+ * a tap and rendering forty cards outlasts one, so the work happens first
+ * and a second tap does nothing but open the sheet.
+ */
+function PictureBackup() {
+  const { settings } = useSettings();
+  const { entries } = useEntries();
+  const snack = useSnackbar();
+  const [progress, setProgress] = useState<BulkProgress | null>(null);
+  const [ready, setReady] = useState<File[] | null>(null);
+
+  const count = photographed(entries ?? []).length;
+
+  const build = useCallback(async () => {
+    setProgress({ done: 0, total: count });
+    try {
+      const files = await buildCards(entries ?? [], settings, setProgress);
+      if (files.length === 0) {
+        snack("No pictures to save yet", "warn");
+        return;
+      }
+      setReady(files);
+    } catch {
+      snack("Could not build the pictures", "warn");
+    } finally {
+      setProgress(null);
+    }
+  }, [count, entries, settings, snack]);
+
+  const save = useCallback(async () => {
+    if (!ready) return;
+    const result = await saveAll(ready);
+    snack(bulkMessage(result, ready.length), result === "failed" ? "warn" : "ok");
+    if (result === "shared" || result === "downloaded") setReady(null);
+  }, [ready, snack]);
+
+  if (ready) {
+    return (
+      <>
+        <button
+          type="button"
+          onClick={save}
+          className="mt-3 w-full bg-ink py-3.5 text-[0.6875rem] tracking-[0.22em] text-paper"
+        >
+          SAVE {ready.length} PICTURES
+        </button>
+        <p className="mt-1.5 text-xs leading-relaxed text-muted">
+          Ready. The share sheet opens on the next tap — “Save {ready.length}{" "}
+          Images” puts them all in your photos.
+        </p>
+      </>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={build}
+      disabled={progress !== null || count === 0}
+      className="mt-3 w-full border border-ink py-3.5 text-[0.6875rem] tracking-[0.22em] disabled:opacity-40"
+    >
+      {progress
+        ? `BUILDING ${progress.done}/${progress.total}…`
+        : `SAVE ALL PICTURES (${count})`}
+    </button>
+  );
+}
+
+/** Taking the app off a phone, without touching what the trip holds. */
+function EraseButton() {
+  const { trip } = useTrip();
+  const sync = useSync();
+  const confirm = useConfirm();
+  const snack = useSnackbar();
+
+  const erase = useCallback(async () => {
+    const sure = await confirm({
+      title: "Erase everything on this phone?",
+      body: trip
+        ? "Every rating and photo goes from this phone, and your ratings come off the trip and off everyone else's phones too. There is no copy anywhere else. Export the log first if you want one."
+        : "Every rating and photo goes, and there is no copy anywhere else. Export the log first if you want one.",
+      action: "ERASE",
+      destructive: true,
+    });
+    if (!sure) return;
+    try {
+      // Erasing is leaving, then wiping: nothing of this phone's is left in
+      // the trip, because there is nothing left here to withdraw it later.
+      if (trip) {
+        if (sync.members.length <= 1) await clearTrip(trip);
+        else await withdrawFrom(trip);
+      }
+      await eraseDevice();
+      // A real reload, not a client-side one: the settings, the trip and the
+      // sync engine are all memoised in module scope and must not outlive
+      // the wipe.
+      window.location.reload();
+    } catch {
+      snack("Could not erase this phone", "warn");
+    }
+  }, [confirm, snack, trip, sync.members.length]);
+
+  return (
+    <button
+      type="button"
+      onClick={erase}
+      className="mt-2 w-full border border-accent py-3.5 text-[0.6875rem] tracking-[0.22em] text-accent"
+    >
+      ERASE THIS PHONE
+    </button>
   );
 }
 

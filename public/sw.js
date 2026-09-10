@@ -56,7 +56,14 @@ self.addEventListener("fetch", (event) => {
           caches.open(CACHE).then((cache) => cache.put(request, copy));
           return response;
         })
-        .catch(() => caches.match(request).then((hit) => hit || caches.match("/"))),
+        // Ignoring the query is what makes an offline "/entry?id=abc" find
+        // the cached "/entry": the page is the same either way, and the id
+        // is read from the URL once it is running.
+        .catch(() =>
+          caches
+            .match(request, { ignoreSearch: true })
+            .then((hit) => hit || caches.match("/")),
+        ),
     );
     return;
   }

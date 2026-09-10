@@ -32,6 +32,15 @@ export function photoPath(code: string, photoId: string): string {
   return `trips/${code}/photos/${photoId}`;
 }
 
+/**
+ * Who is on the trip, one small record each. Without this the only people a
+ * trip knows about are the ones who have already rated something — so
+ * whoever just joined is invisible until they do.
+ */
+export function memberPath(code: string, raterId: string): string {
+  return `trips/${code}/members/${raterId}.json`;
+}
+
 /** The inverse of `entryPath`, for reading the store back. */
 export function parseEntryPath(
   pathname: string,
@@ -85,7 +94,7 @@ function place(value: unknown): Place | undefined {
   };
 }
 
-function rater(value: unknown): Rater | undefined {
+export function sanitiseRater(value: unknown): Rater | undefined {
   if (!value || typeof value !== "object") return undefined;
   const raw = value as Record<string, unknown>;
   const id = text(raw.id, 64);
@@ -139,7 +148,7 @@ export function sanitiseEntry(input: unknown): Entry | null {
     createdAt,
     photoId: isSafeId(raw.photoId) ? raw.photoId : undefined,
     photoUrl: photoUrl(raw.photoUrl),
-    rater: rater(raw.rater),
+    rater: sanitiseRater(raw.rater),
     updatedAt: time(raw.updatedAt),
     deleted: raw.deleted === true ? true : undefined,
   };

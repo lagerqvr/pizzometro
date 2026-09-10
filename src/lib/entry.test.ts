@@ -100,3 +100,31 @@ describe("toDraft", () => {
     expect(back.note).toBe("");
   });
 });
+
+describe("fieldsFor styles", () => {
+  it("offers three styles to tap instead of typing", () => {
+    expect(fieldsFor("pizzeria").styles).toEqual([
+      "Napoletana",
+      "Romana",
+      "Al taglio",
+    ]);
+    expect(fieldsFor("homemade").styles).toEqual(fieldsFor("pizzeria").styles);
+  });
+
+  it("offers none where there is no style field to hold them", () => {
+    const other = fieldsFor("other");
+    expect(other.style).toBe(false);
+    expect(other.styles).toEqual([]);
+  });
+
+  it("suggests a style that survives being saved", () => {
+    // A tapped style must not be mangled by the draft normaliser.
+    for (const style of fieldsFor("pizzeria").styles) {
+      const entry = toEntry(
+        { ...EMPTY_DRAFT, kind: "pizzeria", style },
+        { id: "x", createdAt: 1 },
+      );
+      expect(entry.style).toBe(style);
+    }
+  });
+});

@@ -2,9 +2,17 @@
 
 import * as db from "./db";
 import { changesFrom, pendingPush } from "./merge";
-import { loadMark, loadTrip, saveMark } from "./trip";
-import { sanitiseEntry } from "./wire";
-import type { Entry, Trip } from "./types";
+import {
+  loadMark,
+  loadRoster,
+  loadTrip,
+  markRegistered,
+  needsRegistration,
+  saveMark,
+  saveRoster,
+} from "./trip";
+import { sanitiseEntry, sanitiseRater } from "./wire";
+import type { Entry, Rater, Trip } from "./types";
 
 /**
  * Sync between the two phones on a trip.
@@ -35,6 +43,8 @@ export type SyncState = {
   /** Local changes still waiting to go up. */
   pending: number;
   online: boolean;
+  /** Everyone on the trip, whether or not they have rated anything yet. */
+  members: Rater[];
   reason?: "network" | "server" | "not-configured";
   /** What the last successful sync moved, for the message shown after it. */
   moved?: { pushed: number; pulled: number };
@@ -45,6 +55,7 @@ const IDLE: SyncState = {
   lastSyncedAt: null,
   pending: 0,
   online: true,
+  members: [],
 };
 
 const REQUEST_TIMEOUT_MS = 20_000;
@@ -181,19 +192,24 @@ async function run(): Promise<void> {
   const startedAt = Date.now();
 
   try {
+    // Joining is worth a push of its own: without it nobody else can see
+    // that this phone is on the trip until it rates something.
+    const joining = needsRegistration(trip) ? trip.rater : null;
+
     let pushed = 0;
-    if (outgoing.length > 0) {
+    if (outgoing.length > 0 || joining) {
       const { entries, complete } = await uploadPhotos(trip, outgoing);
       const response = await request(`/api/trip/${trip.code}`, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ entries }),
+        body: JSON.stringify({ entries, member: joining ?? undefined }),
       });
       if (!response.ok) {
         stopped(response.status, outgoing.length);
         return;
       }
       pushed = entries.length;
+      if (joining) markRegistered(trip);
       // A photo left behind keeps its entry in the queue for the next round.
       if (complete) saveMark({ ...mark, pushedAt: startedAt });
     } else {
@@ -208,12 +224,22 @@ async function run(): Promise<void> {
       return;
     }
 
-    const body = (await response.json()) as { entries?: unknown; now?: number };
+    const body = (await response.json()) as {
+      entries?: unknown;
+      members?: unknown;
+      now?: number;
+    };
     const incoming = Array.isArray(body.entries)
       ? body.entries
           .map(sanitiseEntry)
           .filter((entry): entry is Entry => entry !== null)
       : [];
+    const members = Array.isArray(body.members)
+      ? body.members
+          .map(sanitiseRater)
+          .filter((rater): rater is Rater => rater !== undefined)
+      : loadRoster(trip.code);
+    saveRoster(trip.code, members);
 
     const changed = changesFrom(local, incoming);
     if (changed.length > 0) {
@@ -243,6 +269,7 @@ async function run(): Promise<void> {
       online: true,
       lastSyncedAt: Date.now(),
       pending: stillPending,
+      members,
       reason: undefined,
       moved: { pushed, pulled: changed.length },
     });
@@ -267,6 +294,14 @@ export function syncNow(force = false): Promise<void> {
     inFlight = null;
   });
   return inFlight;
+}
+
+/**
+ * Forgets who was on the last trip. Called when one is joined or started,
+ * so nobody is shown as being on a trip they have never been near.
+ */
+export function forgetRoster(): void {
+  set({ members: [] });
 }
 
 /** Test hook: forget everything the engine is holding on to. */
@@ -323,4 +358,46 @@ export function startSync(): () => void {
     document.removeEventListener("visibilitychange", visibility);
     if (timer) clearInterval(timer);
   };
+}
+
+
+/**
+ * Whether a trip with this code is actually out there. A code is all it
+ * takes to write to a trip, so nothing distinguishes joining one from
+ * inventing one — except asking first. Throws if the question could not be
+ * put, which is not the same answer as "no".
+ */
+export async function tripExists(code: string): Promise<boolean> {
+  const response = await request(`/api/trip/${code}`);
+  if (!response.ok) throw new Error(`check ${response.status}`);
+  const body = (await response.json()) as {
+    entries?: unknown[];
+    members?: unknown[];
+  };
+  return (body.entries?.length ?? 0) > 0 || (body.members?.length ?? 0) > 0;
+}
+
+/**
+ * Takes this phone's ratings out of a trip other people are still on: the
+ * server replaces each with a tombstone and deletes the photos, so the other
+ * phones drop them on their next sync. The copies here are untouched.
+ */
+export async function withdrawFrom(trip: Trip): Promise<number> {
+  const response = await request(
+    `/api/trip/${trip.code}?scope=mine&member=${encodeURIComponent(trip.rater.id)}`,
+    { method: "DELETE" },
+  );
+  if (!response.ok) throw new Error(`withdraw ${response.status}`);
+  const body = (await response.json()) as { withdrawn?: number };
+  return body.withdrawn ?? 0;
+}
+
+/** Empties a trip in the shared store. Each phone keeps its own copies. */
+export async function clearTrip(trip: Trip): Promise<number> {
+  const response = await request(`/api/trip/${trip.code}?scope=trip`, {
+    method: "DELETE",
+  });
+  if (!response.ok) throw new Error(`clear ${response.status}`);
+  const body = (await response.json()) as { cleared?: number };
+  return body.cleared ?? 0;
 }

@@ -38,6 +38,28 @@ export function resetDbCache(): void {
   cached = null;
 }
 
+/**
+ * Drops the whole local database — every rating and every photo byte. The
+ * open connection has to go first or the delete blocks behind it.
+ */
+export async function deleteDatabase(): Promise<void> {
+  if (cached) {
+    try {
+      (await cached).close();
+    } catch {
+      /* Already gone; the delete below is what matters. */
+    }
+  }
+  resetDbCache();
+  await new Promise<void>((resolve, reject) => {
+    const request = indexedDB.deleteDatabase(DB_NAME);
+    request.onsuccess = () => resolve();
+    request.onerror = () => reject(request.error);
+    // Another tab is holding it open: it will be dropped when that tab goes.
+    request.onblocked = () => resolve();
+  });
+}
+
 function run<T>(
   store: string,
   mode: IDBTransactionMode,

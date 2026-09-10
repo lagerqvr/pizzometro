@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { EntryCard } from "@/components/EntryCard";
-import { TripFooter, Wordmark } from "@/components/Wordmark";
+import { Wordmark } from "@/components/Wordmark";
 import { useEntries, useTrip } from "@/lib/hooks";
 import { byRater, ratersOf } from "@/lib/merge";
 import { formatRating, rank, stats } from "@/lib/score";
@@ -17,7 +17,10 @@ export default function LeaderboardPage() {
   const raters = ratersOf(all);
   // Alone, or before the other one has rated anything, there is one board.
   const split = Boolean(trip) && raters.length > 1;
-  const who = split ? selected : null;
+  // A selected person who no longer has any ratings falls back to everyone,
+  // rather than leaving a tab lit above an empty board.
+  const who =
+    split && raters.some((rater) => rater.id === selected) ? selected : null;
   const ranked = rank(byRater(all, who));
 
   return (
@@ -26,8 +29,14 @@ export default function LeaderboardPage() {
 
       {split && (
         <>
-          <div className="mt-5 flex gap-px border-y border-ink bg-ink">
-            <Tab label="BOTH" active={who === null} onClick={() => setSelected(null)} />
+          {/* Two people fill the width; a table of six scrolls sideways
+              rather than shrinking to nothing. */}
+          <div className="mt-5 flex gap-px overflow-x-auto border-y border-ink bg-ink">
+            <Tab
+              label={raters.length > 2 ? "EVERYONE" : "BOTH"}
+              active={who === null}
+              onClick={() => setSelected(null)}
+            />
             {raters.map((rater) => (
               <Tab
                 key={rater.id}
@@ -38,18 +47,34 @@ export default function LeaderboardPage() {
             ))}
           </div>
 
-          {who === null && (
-            <section className="grid grid-cols-2 border-b border-rule">
-              {raters.map((rater, index) => (
-                <Score
-                  key={rater.id}
-                  rater={rater}
-                  entries={byRater(all, rater.id)}
-                  divider={index > 0}
-                />
-              ))}
-            </section>
-          )}
+          {who === null &&
+            (raters.length <= 3 ? (
+              <section
+                className={`grid border-b border-rule ${
+                  raters.length === 3 ? "grid-cols-3" : "grid-cols-2"
+                }`}
+              >
+                {raters.map((rater, index) => (
+                  <Score
+                    key={rater.id}
+                    rater={rater}
+                    entries={byRater(all, rater.id)}
+                    divider={index > 0}
+                  />
+                ))}
+              </section>
+            ) : (
+              /* Past three, columns are narrower than the numbers in them. */
+              <section className="border-b border-rule">
+                {raters.map((rater) => (
+                  <ScoreRow
+                    key={rater.id}
+                    rater={rater}
+                    entries={byRater(all, rater.id)}
+                  />
+                ))}
+              </section>
+            ))}
         </>
       )}
 
@@ -71,7 +96,6 @@ export default function LeaderboardPage() {
         )}
       </section>
 
-      <TripFooter />
     </main>
   );
 }
@@ -90,7 +114,7 @@ function Tab({
       type="button"
       aria-pressed={active}
       onClick={onClick}
-      className={`flex-1 truncate px-3 py-3 text-[0.625rem] tracking-[0.16em] transition-colors ${
+      className={`min-w-[5.5rem] flex-1 shrink-0 truncate px-3 py-3 text-[0.625rem] tracking-[0.16em] transition-colors ${
         active ? "bg-ink text-paper" : "bg-paper text-muted"
       }`}
     >
@@ -107,6 +131,7 @@ function Score({
 }: {
   rater: Rater;
   entries: ReturnType<typeof byRater>;
+  /** Only inside a row: a left rule on a row's first cell looks wrong. */
   divider: boolean;
 }) {
   const summary = stats(entries);
@@ -118,6 +143,30 @@ function Score({
       </p>
       <p className="text-[0.625rem] tracking-[0.16em] text-muted">
         {summary.count} RATED
+      </p>
+    </div>
+  );
+}
+
+/** The same numbers as `Score`, in a row, for a bigger table. */
+function ScoreRow({
+  rater,
+  entries,
+}: {
+  rater: Rater;
+  entries: ReturnType<typeof byRater>;
+}) {
+  const summary = stats(entries);
+  return (
+    <div className="flex items-baseline justify-between gap-4 border-b border-dashed border-rule px-5 py-2 last:border-b-0">
+      <p className="min-w-0 truncate text-sm">{rater.name}</p>
+      <p className="flex shrink-0 items-baseline gap-2">
+        <span className="text-[0.625rem] tracking-[0.16em] text-muted">
+          {summary.count} RATED
+        </span>
+        <span className="font-[family-name:var(--font-type)] text-xl font-bold tabular-nums">
+          {summary.average == null ? "—" : formatRating(summary.average)}
+        </span>
       </p>
     </div>
   );

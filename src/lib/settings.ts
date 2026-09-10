@@ -8,7 +8,12 @@ export function parseSettings(raw: string | null): Settings {
   try {
     const parsed = JSON.parse(raw) as Partial<Settings>;
     const corner = parsed.stampCorner;
+    const size = parsed.stampSize;
     return {
+      stampSize:
+        size === "s" || size === "m" || size === "l"
+          ? size
+          : DEFAULT_SETTINGS.stampSize,
       stampCorner:
         corner === "tl" || corner === "tr" || corner === "bl" || corner === "br"
           ? corner
@@ -21,6 +26,18 @@ export function parseSettings(raw: string | null): Settings {
         typeof parsed.systemCamera === "boolean"
           ? parsed.systemCamera
           : DEFAULT_SETTINGS.systemCamera,
+      mirrorCamera:
+        typeof parsed.mirrorCamera === "boolean"
+          ? parsed.mirrorCamera
+          : DEFAULT_SETTINGS.mirrorCamera,
+      squareCrop:
+        typeof parsed.squareCrop === "boolean"
+          ? parsed.squareCrop
+          : DEFAULT_SETTINGS.squareCrop,
+      photoQuality:
+        parsed.photoQuality === "balanced" || parsed.photoQuality === "full"
+          ? parsed.photoQuality
+          : DEFAULT_SETTINGS.photoQuality,
       stamp: { ...DEFAULT_SETTINGS.stamp, ...(parsed.stamp ?? {}) },
     };
   } catch {

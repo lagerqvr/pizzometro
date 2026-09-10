@@ -73,7 +73,7 @@ export function saveMessage(result: SaveResult): string {
     case "downloaded":
       return "Picture saved to your downloads";
     case "cancelled":
-      return "Not saved — tap the picture to try again";
+      return "Not saved — tap Save picture to keep it";
     case "failed":
       return "Could not save the picture";
   }

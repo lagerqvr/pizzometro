@@ -50,10 +50,23 @@ export function pendingPush(entries: Entry[], pushedAt: number): Entry[] {
   return entries.filter((entry) => versionOf(entry) > pushedAt);
 }
 
-/** Claims an entry for a trip: whoever is holding the phone rated it. */
+/**
+ * Takes an entry into a trip: an unclaimed one becomes yours, and one that
+ * is already yours is bumped to now.
+ *
+ * The bump is what makes rejoining safe. Leaving withdraws your ratings by
+ * leaving a tombstone in the trip; without a fresher version, that tombstone
+ * would win on the way back in and delete your own copies.
+ */
 export function claim(entry: Entry, rater: Rater, now: number): Entry {
-  if (entry.rater) return entry;
-  return { ...entry, rater, updatedAt: now };
+  if (entry.rater && entry.rater.id !== rater.id) return entry;
+  return {
+    ...entry,
+    rater,
+    updatedAt: now,
+    // The photo went with the withdrawal, so it has to go up again.
+    photoUrl: undefined,
+  };
 }
 
 export function isMine(entry: Entry, rater?: Rater): boolean {
@@ -82,4 +95,14 @@ export function ratersOf(entries: Entry[]): Rater[] {
 export function byRater(entries: Entry[], raterId: string | null): Entry[] {
   if (raterId === null) return entries;
   return entries.filter((entry) => entry.rater?.id === raterId);
+}
+
+/**
+ * Leaving a trip keeps what you made and lets go of what you were only
+ * holding because you were on it. Those ratings stay in the trip itself, so
+ * rejoining with the same code brings them back — which is why this must be
+ * a plain local delete and never a tombstone.
+ */
+export function othersRatings(entries: Entry[], me: Rater): Entry[] {
+  return entries.filter((entry) => entry.rater && entry.rater.id !== me.id);
 }

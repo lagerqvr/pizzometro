@@ -6,6 +6,7 @@ import { Wordmark } from "@/components/Wordmark";
 import { useSnackbar } from "@/components/Snackbar";
 import { useTrip } from "@/lib/hooks";
 import { isTripCode, normaliseCode } from "@/lib/trip";
+import { tripExists } from "@/lib/sync";
 
 /**
  * The other end of a shared link. Nothing happens until a name is given:
@@ -25,12 +26,18 @@ function JoinForm() {
     if (!valid || busy) return;
     setBusy(true);
     try {
+      // Joining something that is not there would create it, empty.
+      if (!(await tripExists(code))) {
+        setBusy(false);
+        snack("No trip with that code — ask for the link again", "warn");
+        return;
+      }
       await join(code, name);
       snack("Joined the trip");
       router.replace("/");
     } catch {
       setBusy(false);
-      snack("Could not join that trip", "warn");
+      snack("Could not reach that trip — try again with signal", "warn");
     }
   };
 

@@ -3,6 +3,7 @@ import type { OverpassElement } from "./places";
 import {
   distanceMeters,
   formatDistance,
+  mapsUrl,
   manualPlace,
   mergePlaces,
   parseNominatim,
@@ -146,5 +147,25 @@ describe("mergePlaces", () => {
       ],
     );
     expect(merged.map((place) => place.id)).toEqual(["osm:node/1", "osm:node/3"]);
+  });
+});
+
+describe("mapsUrl", () => {
+  it("uses the coordinates when the place has them", () => {
+    const url = mapsUrl({ id: "1", name: "Sorbillo", lat: 40.8507, lon: 14.2626 });
+    expect(url).toContain("query=40.8507%2C14.2626");
+  });
+
+  it("falls back to the name and address when it does not", () => {
+    const url = mapsUrl({
+      id: "manual:x",
+      name: "Da Michele",
+      address: "Via Cesare Sersale 1",
+    });
+    expect(decodeURIComponent(url)).toContain("Da Michele, Via Cesare Sersale 1");
+  });
+
+  it("escapes what it puts in the query", () => {
+    expect(mapsUrl({ id: "1", name: "Pizza & Co" })).not.toContain(" ");
   });
 });

@@ -3,6 +3,9 @@ import {
   CARD_PAD,
   CARD_SIZE,
   buildStamp,
+  cardSize,
+  stampChars,
+  stampType,
   coverRect,
   formatStampDate,
   isStampEmpty,
@@ -85,6 +88,72 @@ describe("buildStamp", () => {
   });
 });
 
+describe("stamp sizes", () => {
+  it("gives three steps, medium when nothing is stored", () => {
+    expect(stampType("s")).toBe(30);
+    expect(stampType("m")).toBe(38);
+    expect(stampType("l")).toBe(48);
+    expect(stampType(undefined)).toBe(38);
+  });
+
+  it("fits fewer characters on a line as the text grows", () => {
+    const small = stampChars(stampType("s"));
+    const large = stampChars(stampType("l"));
+    expect(small).toBeGreaterThan(large);
+    // Whatever the size, a line has to stay inside the padding.
+    for (const size of ["s", "m", "l"] as const) {
+      const type = stampType(size);
+      expect(stampChars(type) * type * 0.6).toBeLessThanOrEqual(
+        CARD_SIZE - CARD_PAD * 2,
+      );
+    }
+  });
+});
+
+describe("stampLines at a size", () => {
+  it("truncates a long place to what the chosen size allows", () => {
+    const stamp = {
+      rating: "9",
+      place: "Antica Pizzeria Da Michele Forcella Napoli Centro",
+      name: "Margherita",
+    };
+    const large = stampLines(stamp, stampType("l"));
+    const small = stampLines(stamp, stampType("s"));
+    expect(large[1].length).toBeLessThan(small[1].length);
+    expect(large[1].endsWith("…")).toBe(true);
+  });
+});
+
+describe("cardSize", () => {
+  it("is a square when a square is asked for, whatever the photo", () => {
+    expect(cardSize({ width: 4000, height: 3000 }, true)).toEqual({
+      width: CARD_SIZE,
+      height: CARD_SIZE,
+    });
+  });
+
+  it("keeps a landscape photo's shape, long side first", () => {
+    expect(cardSize({ width: 4000, height: 3000 }, false)).toEqual({
+      width: 1080,
+      height: 810,
+    });
+  });
+
+  it("keeps a portrait photo's shape", () => {
+    expect(cardSize({ width: 3000, height: 4000 }, false)).toEqual({
+      width: 810,
+      height: 1080,
+    });
+  });
+
+  it("falls back to a square rather than dividing by nothing", () => {
+    expect(cardSize({ width: 0, height: 0 }, false)).toEqual({
+      width: CARD_SIZE,
+      height: CARD_SIZE,
+    });
+  });
+});
+
 describe("stampLayout", () => {
   it("anchors each corner inside the padding", () => {
     expect(stampLayout("tl")).toMatchObject({
@@ -99,6 +168,12 @@ describe("stampLayout", () => {
       align: "right",
       isTop: false,
     });
+  });
+
+  it("anchors to the corners of a picture that is not square", () => {
+    const layout = stampLayout("br", 1080, CARD_PAD, 810);
+    expect(layout.x).toBe(1080 - CARD_PAD);
+    expect(layout.y).toBe(810 - CARD_PAD);
   });
 
   it("stacks downwards from the top and upwards from the bottom", () => {

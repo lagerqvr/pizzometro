@@ -1,13 +1,34 @@
 import { formatRating } from "./score";
-import type { Corner, Entry, Settings } from "./types";
+import type { Corner, Entry, Settings, StampSize } from "./types";
 
 /** The generated picture is a 1080² square — the safest social format. */
 export const CARD_SIZE = 1080;
 export const CARD_PAD = 56;
-/** One type size for the whole stamp: no hierarchy, nothing to tune. */
+/** One type size for the whole stamp: no hierarchy, only how big. */
 export const STAMP_TYPE = 38;
-/** Characters that fit on a stamp line at STAMP_TYPE inside the padding. */
-const STAMP_CHARS = 32;
+
+export const STAMP_SIZES: Record<StampSize, number> = {
+  s: 30,
+  m: 38,
+  l: 48,
+};
+
+export function stampType(size: StampSize | undefined): number {
+  return STAMP_SIZES[size ?? "m"] ?? STAMP_TYPE;
+}
+
+/**
+ * How many characters fit on one line at a given size. A monospace glyph is
+ * about 0.6 em wide, so bigger text simply means fewer of them — the stamp
+ * never runs off the edge of the picture.
+ */
+export function stampChars(
+  type: number,
+  width = CARD_SIZE,
+  pad = CARD_PAD,
+): number {
+  return Math.max(8, Math.floor((width - pad * 2) / (type * 0.6)));
+}
 
 /**
  * Source rectangle that fills `dst` with `src` without distortion
@@ -26,6 +47,23 @@ export function coverRect(
   }
   const sh = src.width / dstRatio;
   return { sx: 0, sy: (src.height - sh) / 2, sw: src.width, sh };
+}
+
+/**
+ * The shape of the saved picture: a square by choice, or the photo's own
+ * proportions with the long side at CARD_SIZE.
+ */
+export function cardSize(
+  src: { width: number; height: number },
+  square: boolean,
+): { width: number; height: number } {
+  if (square || !src.width || !src.height) {
+    return { width: CARD_SIZE, height: CARD_SIZE };
+  }
+  const ratio = src.width / src.height;
+  return ratio >= 1
+    ? { width: CARD_SIZE, height: Math.round(CARD_SIZE / ratio) }
+    : { width: Math.round(CARD_SIZE * ratio), height: CARD_SIZE };
 }
 
 export type Stamp = {
@@ -66,11 +104,16 @@ export function isStampEmpty(stamp: Stamp): boolean {
  * The stamp as plain lines, in reading order: score, where, what, when.
  * Every line is the same size on the picture, so this is the whole layout.
  */
-export function stampLines(stamp: Stamp): string[] {
+export function stampLines(
+  stamp: Stamp,
+  type = STAMP_TYPE,
+  width = CARD_SIZE,
+): string[] {
+  const budget = stampChars(type, width);
   const lines: string[] = [];
   if (stamp.rating) lines.push(`${stamp.rating}/10`);
-  if (stamp.place) lines.push(truncate(stamp.place, STAMP_CHARS));
-  if (stamp.name) lines.push(truncate(stamp.name, STAMP_CHARS));
+  if (stamp.place) lines.push(truncate(stamp.place, budget));
+  if (stamp.name) lines.push(truncate(stamp.name, budget));
   if (stamp.date) lines.push(stamp.date);
   return lines;
 }
@@ -86,14 +129,15 @@ export type StampLayout = {
 
 export function stampLayout(
   corner: Corner,
-  size = CARD_SIZE,
+  width = CARD_SIZE,
   pad = CARD_PAD,
+  height = width,
 ): StampLayout {
   const isTop = corner === "tl" || corner === "tr";
   const isLeft = corner === "tl" || corner === "bl";
   return {
-    x: isLeft ? pad : size - pad,
-    y: isTop ? pad : size - pad,
+    x: isLeft ? pad : width - pad,
+    y: isTop ? pad : height - pad,
     align: isLeft ? "left" : "right",
     direction: isTop ? "down" : "up",
     isTop,

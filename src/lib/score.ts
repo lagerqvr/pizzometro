@@ -6,14 +6,44 @@ export function formatRating(rating: number): string {
   return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1);
 }
 
+/**
+ * The scale, in the app's own words. Everything that shows a verdict reads
+ * this list, so the readout and the explanation in Setup cannot drift apart.
+ */
+export const SCALE = [
+  { from: 9.5, word: "LEGGENDARIA", meaning: "Worth the trip on its own" },
+  { from: 8.5, word: "OTTIMA", meaning: "Excellent — go back" },
+  { from: 7, word: "BUONA", meaning: "Good pizza, no complaints" },
+  { from: 5.5, word: "OK", meaning: "Edible, forgettable" },
+  { from: 3.5, word: "MEH", meaning: "Something was wrong" },
+  { from: 0, word: "NO", meaning: "Do not repeat" },
+] as const;
+
 /** A one-word verdict, in the spirit of a gauge readout. */
 export function verdict(rating: number): string {
-  if (rating >= 9.5) return "LEGGENDARIA";
-  if (rating >= 8.5) return "OTTIMA";
-  if (rating >= 7) return "BUONA";
-  if (rating >= 5.5) return "OK";
-  if (rating >= 3.5) return "MEH";
-  return "NO";
+  const band = SCALE.find((step) => rating >= step.from);
+  return (band ?? SCALE[SCALE.length - 1]).word;
+}
+
+/** The scale as rows: word, the range it covers, and what it means. */
+export function scaleBands(): Array<{
+  word: string;
+  range: string;
+  meaning: string;
+}> {
+  return SCALE.map((step, index) => {
+    const top = index === 0 ? 10 : SCALE[index - 1].from - 0.1;
+    return {
+      word: step.word,
+      meaning: step.meaning,
+      range: `${formatRating(step.from)}–${formatRating(top)}`,
+    };
+  });
+}
+
+/** The band a rating falls in, for anything that wants more than the word. */
+export function band(rating: number): (typeof SCALE)[number] {
+  return SCALE.find((step) => rating >= step.from) ?? SCALE[SCALE.length - 1];
 }
 
 export type Ranked = Entry & { rank: number };

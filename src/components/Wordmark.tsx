@@ -4,7 +4,7 @@ import { TRIP } from "@/lib/types";
 
 export function Wordmark({ subtitle }: { subtitle?: string }) {
   return (
-    <header className="px-5 pt-[calc(env(safe-area-inset-top)+1.5rem)]">
+    <header className="px-5 pt-[calc(env(safe-area-inset-top)+2.25rem)]">
       <div className="flex items-center gap-2.5">
         <Link
           href="/"

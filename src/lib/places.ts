@@ -149,3 +149,17 @@ export function placeLabel(place?: Place | null): string {
   if (!place) return "";
   return place.name;
 }
+
+/**
+ * Opens the place in the phone's map app — Google Maps if it is installed,
+ * the web map otherwise, and on iOS the web map offers to hand over to Maps.
+ * Coordinates beat a name when we have them: no ambiguity about which
+ * Sorbillo.
+ */
+export function mapsUrl(place: Place): string {
+  const query =
+    place.lat != null && place.lon != null
+      ? `${place.lat},${place.lon}`
+      : [place.name, place.address].filter(Boolean).join(", ");
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
+}
