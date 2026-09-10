@@ -40,6 +40,48 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
 type Message = { text: string; tone: "ok" | "warn"; once?: boolean };
 
 /**
+ * What to say after somebody taps SYNC NOW. Asking on purpose always gets an
+ * answer, including "nothing happened" — the quiet rules below are for the
+ * syncs nobody asked for.
+ */
+export function manualSyncMessage(sync: SyncState): Message {
+  switch (sync.status) {
+    case "idle": {
+      const pulled = sync.moved?.pulled ?? 0;
+      const pushed = sync.moved?.pushed ?? 0;
+      if (pulled > 0 && pushed > 0) {
+        return {
+          text: `Synced — ${pushed} sent, ${pulled} received`,
+          tone: "ok",
+        };
+      }
+      if (pulled > 0) {
+        return {
+          text: `Synced — ${pulled} new ${pulled === 1 ? "rating" : "ratings"}`,
+          tone: "ok",
+        };
+      }
+      if (pushed > 0) {
+        return {
+          text: `Synced — ${pushed} ${pushed === 1 ? "rating" : "ratings"} sent`,
+          tone: "ok",
+        };
+      }
+      return { text: "Synced — nothing new", tone: "ok" };
+    }
+    case "offline":
+      return { text: "No signal — nothing was sent", tone: "warn" };
+    case "unavailable":
+      return { text: "Sharing is not set up for this trip yet", tone: "warn" };
+    case "syncing":
+      return { text: "Still syncing…", tone: "ok" };
+    case "error":
+    case "off":
+      return { text: "Could not reach the trip", tone: "warn" };
+  }
+}
+
+/**
  * What, if anything, to say out loud when the connection state changes.
  *
  * Only a change of state can speak — holding one state, however long, is

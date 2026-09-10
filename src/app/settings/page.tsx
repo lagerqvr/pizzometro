@@ -3,6 +3,7 @@
 import { useCallback, useState } from "react";
 import { TripFooter, Wordmark } from "@/components/Wordmark";
 import { useConfirm } from "@/components/Confirm";
+import { manualSyncMessage } from "@/components/SyncBadge";
 import { useSnackbar } from "@/components/Snackbar";
 import { useEntries, useSettings, useSync, useTrip } from "@/lib/hooks";
 import { othersRatings, ratersOf } from "@/lib/merge";
@@ -18,6 +19,7 @@ import {
 import { eraseDevice } from "@/lib/wipe";
 import {
   clearTrip,
+  getSyncState,
   syncNow,
   tripExists,
   withdrawFrom,
@@ -569,7 +571,11 @@ function TripSection() {
 
       <button
         type="button"
-        onClick={() => void syncNow(true)}
+        onClick={async () => {
+          await syncNow(true);
+          const message = manualSyncMessage(getSyncState());
+          snack(message.text, message.tone);
+        }}
         disabled={sync.status === "syncing"}
         className="mt-2 w-full border border-ink py-3.5 text-[0.6875rem] tracking-[0.22em] disabled:opacity-40"
       >
@@ -711,6 +717,7 @@ function EraseButton() {
         : "Every rating and photo goes, and there is no copy anywhere else. Export the log first if you want one.",
       action: "ERASE",
       destructive: true,
+      confirmText: "erase",
     });
     if (!sure) return;
     try {
@@ -721,10 +728,11 @@ function EraseButton() {
         else await withdrawFrom(trip);
       }
       await eraseDevice();
+      snack("Everything on this phone erased");
       // A real reload, not a client-side one: the settings, the trip and the
       // sync engine are all memoised in module scope and must not outlive
-      // the wipe.
-      window.location.reload();
+      // the wipe. Held back a moment so the message is seen first.
+      setTimeout(() => window.location.reload(), 1_200);
     } catch {
       snack("Could not erase this phone", "warn");
     }

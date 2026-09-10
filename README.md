@@ -14,7 +14,7 @@ name into the corner of a picture ready for social media.
 ```bash
 npm install
 npm run dev        # http://localhost:3000
-npm test           # 273 unit, component and route tests
+npm test           # 278 unit, component and route tests
 npm run typecheck
 npm run build
 ```
@@ -43,6 +43,13 @@ Anyone on a trip can delete a rating — tidying the shared log is fair, and the
 confirmation names whose it is — but only its author can edit it. A score with
 your name on it should only ever have been typed by you. Used alone, with
 no trip, none of this appears and nothing leaves the phone.
+
+**Every action answers.** Anything that changes something says so, and the
+two that cannot be undone — erasing a phone, and the trip going with the last
+person out — make you type the word first. A sync you asked for always
+reports, including "nothing new"; the ones nobody asked for stay quiet unless
+something actually happened, so a morning with no signal is one message
+rather than one a minute.
 
 **Joining** checks the trip is there first. A code is the only thing a trip
 has, and writing to one that does not exist creates it — so a typo of the

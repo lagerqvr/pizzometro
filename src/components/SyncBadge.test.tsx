@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { syncMessage } from "./SyncBadge";
+import { manualSyncMessage, syncMessage } from "./SyncBadge";
 import type { SyncState } from "@/lib/sync";
 
 function state(patch: Partial<SyncState> = {}): SyncState {
@@ -64,5 +64,43 @@ describe("syncMessage", () => {
 
   it("says nothing at all when there is no trip", () => {
     expect(syncMessage("idle", state({ status: "off" }))).toBeNull();
+  });
+});
+
+describe("manualSyncMessage", () => {
+  it("always answers a tap, even when nothing moved", () => {
+    // The quiet rules are for syncs nobody asked for; this one was asked for.
+    expect(manualSyncMessage(state({ moved: { pushed: 0, pulled: 0 } })).text).toBe(
+      "Synced — nothing new",
+    );
+  });
+
+  it("says what came back", () => {
+    expect(manualSyncMessage(state({ moved: { pushed: 0, pulled: 2 } })).text).toBe(
+      "Synced — 2 new ratings",
+    );
+    expect(manualSyncMessage(state({ moved: { pushed: 0, pulled: 1 } })).text).toBe(
+      "Synced — 1 new rating",
+    );
+  });
+
+  it("says what went up", () => {
+    expect(manualSyncMessage(state({ moved: { pushed: 3, pulled: 0 } })).text).toBe(
+      "Synced — 3 ratings sent",
+    );
+  });
+
+  it("says both when the sync went both ways", () => {
+    expect(manualSyncMessage(state({ moved: { pushed: 1, pulled: 2 } })).text).toBe(
+      "Synced — 1 sent, 2 received",
+    );
+  });
+
+  it("warns rather than pretending, when it could not sync", () => {
+    expect(manualSyncMessage(state({ status: "offline" }))).toMatchObject({
+      tone: "warn",
+    });
+    expect(manualSyncMessage(state({ status: "error" })).tone).toBe("warn");
+    expect(manualSyncMessage(state({ status: "unavailable" })).tone).toBe("warn");
   });
 });
