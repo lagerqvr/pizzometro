@@ -14,7 +14,7 @@ name into the corner of a picture ready for social media.
 ```bash
 npm install
 npm run dev        # http://localhost:3000
-npm test           # 278 unit, component and route tests
+npm test           # 282 unit, component and route tests
 npm run typecheck
 npm run build
 ```
@@ -87,15 +87,17 @@ job to the camera app instead and stop the prompt on every launch.
 
 **Photos** are kept at the camera's own resolution by default, or capped at
 1600px if `Setup → Photo quality` is set to balanced — roughly 3–6 MB against
-150 KB. There is only ever one copy: the saved picture is drawn at 1080px
-either way, so the choice is about the archive and about what travels over
-roaming data. Anything that is not already a JPEG is re-encoded, because an
+150 KB. There is only ever one copy. The setting carries through to the saved
+picture: at full quality it comes out at the photo's own size, with the stamp
+scaled to match, and at balanced it is the 1080px social-media size. Anything that is not already a JPEG is re-encoded, because an
 iPhone hands over HEIC and only Safari can read it. Bytes are stored as raw
 bytes plus a MIME type rather than as `Blob` objects, which several Safari
 versions fail to hand back intact.
 
-**The share picture** is drawn on a canvas 1080px along its longest side —
-centre-cropped to a square, or keeping the photo's own shape, as you like.
+**The share picture** is centre-cropped to a square or keeps the photo's own
+shape, as you like, and is 1080px along its longest side unless the photo
+quality is full — in which case it is as big as the photo, and never bigger,
+since upscaling only invents detail.
 The stamp is plain white monospace, one size for every line — score, place,
 pizza — hard against a corner with no panel, rule or shadow behind it. The
 corner, the text size, the picture's shape and which lines appear are all

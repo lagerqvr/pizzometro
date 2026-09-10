@@ -67,6 +67,39 @@ export function useEntry(id: string) {
 }
 
 /**
+ * How far the bottom of the layout viewport sits below what can actually be
+ * seen — the keyboard, in practice.
+ *
+ * iOS keeps a fixed element pinned to the layout viewport while the visible
+ * one shrinks, which strands a bottom bar halfway up the screen. Everything
+ * pinned to the bottom offsets itself by this, so it goes back behind the
+ * keyboard where it belongs.
+ */
+export function useKeyboardInset(): number {
+  const [inset, setInset] = useState(0);
+
+  useEffect(() => {
+    const viewport = window.visualViewport;
+    if (!viewport) return;
+    const update = () =>
+      setInset(
+        Math.max(
+          0,
+          Math.round(window.innerHeight - viewport.height - viewport.offsetTop),
+        ),
+      );
+    viewport.addEventListener("resize", update);
+    viewport.addEventListener("scroll", update);
+    return () => {
+      viewport.removeEventListener("resize", update);
+      viewport.removeEventListener("scroll", update);
+    };
+  }, []);
+
+  return inset;
+}
+
+/**
  * One object URL per blob, released when that blob is replaced and not a
  * moment sooner. Sharing a single cleanup between two blobs is how stepping
  * back from the preview lost the photo: the card changing revoked the

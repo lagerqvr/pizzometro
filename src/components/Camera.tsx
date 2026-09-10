@@ -210,7 +210,9 @@ export function Camera({
 
         {flash && <div className="absolute inset-0 bg-paper opacity-80" />}
 
-        <div className="absolute inset-x-0 top-0 flex items-center justify-between p-4 pt-[calc(env(safe-area-inset-top)+0.75rem)]">
+        {/* Pushed down the same distance as the wordmark: iOS blurs the top
+            of the screen as it scrolls, and this row was catching it. */}
+        <div className="absolute inset-x-0 top-0 flex items-center justify-between p-4 pt-[calc(env(safe-area-inset-top)+2rem)]">
           <button
             type="button"
             onClick={onCancel}

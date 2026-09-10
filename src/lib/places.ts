@@ -124,8 +124,21 @@ export function parseNominatim(
   return places;
 }
 
-export function manualPlace(name: string): Place {
-  return { id: `manual:${name.trim().toLowerCase()}`, name: name.trim() };
+/**
+ * A place typed by hand. It takes the phone's position with it when there is
+ * one: without coordinates the map link is a worldwide search for the name,
+ * which is how "Da Michele" opened a map of Germany.
+ */
+export function manualPlace(
+  name: string,
+  at?: { lat: number; lon: number } | null,
+): Place {
+  return {
+    id: `manual:${name.trim().toLowerCase()}`,
+    name: name.trim(),
+    lat: at?.lat,
+    lon: at?.lon,
+  };
 }
 
 /** Merge suggestion lists, keeping the first occurrence of each place. */

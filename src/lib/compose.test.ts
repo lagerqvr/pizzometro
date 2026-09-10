@@ -90,7 +90,7 @@ describe("buildStamp", () => {
 
 describe("stamp sizes", () => {
   it("gives three steps, medium when nothing is stored", () => {
-    expect(stampType("s")).toBe(30);
+    expect(stampType("s")).toBe(24);
     expect(stampType("m")).toBe(38);
     expect(stampType("l")).toBe(48);
     expect(stampType(undefined)).toBe(38);
@@ -143,6 +143,30 @@ describe("cardSize", () => {
     expect(cardSize({ width: 3000, height: 4000 }, false)).toEqual({
       width: 810,
       height: 1080,
+    });
+  });
+
+  it("keeps the photo's own size when asked for one", () => {
+    // A 1737x3088 phone photo, kept whole rather than shrunk to 1080.
+    expect(cardSize({ width: 1737, height: 3088 }, false, 3088)).toEqual({
+      width: 1737,
+      height: 3088,
+    });
+  });
+
+  it("cuts the biggest square the photo can give", () => {
+    expect(cardSize({ width: 1737, height: 3088 }, true, 3088)).toEqual({
+      width: 1737,
+      height: 1737,
+    });
+  });
+
+  it("never invents pixels the photo does not have", () => {
+    const small = cardSize({ width: 800, height: 600 }, false, 4096);
+    expect(small).toEqual({ width: 800, height: 600 });
+    expect(cardSize({ width: 800, height: 600 }, true, 4096)).toEqual({
+      width: 600,
+      height: 600,
     });
   });
 

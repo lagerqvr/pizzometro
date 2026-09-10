@@ -62,8 +62,13 @@ function EntryView() {
       const blob = await photoFor(entry);
       if (!blob) throw new Error("missing photo");
       const card = await renderCard(blob, entry, settings);
-      const result = await saveToPhotos(card, entry);
-      snack(saveMessage(result), result === "failed" ? "warn" : "ok");
+      // Not awaited: the sheet's promise can outlive the sheet on iOS, and
+      // the button would sit on BUILDING… for ever waiting for it.
+      void saveToPhotos(card, entry)
+        .then((result) =>
+          snack(saveMessage(result), result === "failed" ? "warn" : "ok"),
+        )
+        .catch(() => snack("Could not save the picture", "warn"));
     } catch {
       snack("Could not build the picture", "warn");
     } finally {
@@ -376,8 +381,15 @@ function Row({ label, value }: { label: string; value: string }) {
   );
 }
 
-/** The name is enough on the screen; the address is one tap away, in a map. */
+/**
+ * The name is enough on the screen; the map is one tap away — but only when
+ * the place has coordinates. Sending a name to a map on its own opens
+ * whichever one in the world the search likes best.
+ */
 function PlaceRow({ place }: { place: NonNullable<Entry["place"]> }) {
+  if (place.lat == null || place.lon == null) {
+    return <Row label="Location" value={place.name} />;
+  }
   return (
     <div className="flex items-center justify-between gap-4 border-b border-dashed border-rule py-2">
       <dt className="label shrink-0">Location</dt>

@@ -2,6 +2,7 @@
 
 import {
   CARD_PAD,
+  CARD_SIZE,
   buildStamp,
   cardSize,
   coverRect,
@@ -56,14 +57,17 @@ function drawStamp(
   settings: Settings,
   width: number,
   height: number,
+  /** 1 for a 1080px picture, more for one kept at the photo's own size. */
+  scale: number,
 ): void {
+  const pad = Math.round(CARD_PAD * scale);
   const { x, align, isTop } = stampLayout(
     settings.stampCorner,
     width,
-    CARD_PAD,
+    pad,
     height,
   );
-  const type = stampType(settings.stampSize);
+  const type = Math.round(stampType(settings.stampSize) * scale);
   const step = Math.round(type * 1.42);
 
   ctx.save();
@@ -75,8 +79,8 @@ function drawStamp(
   // Top corners hang the first baseline below the padding line; bottom
   // corners sit the last baseline on it.
   const first = isTop
-    ? CARD_PAD + type
-    : height - CARD_PAD - step * (lines.length - 1);
+    ? pad + type
+    : height - pad - step * (lines.length - 1);
   lines.forEach((line, index) => ctx.fillText(line, x, first + index * step));
   ctx.restore();
 }
@@ -91,10 +95,18 @@ export async function renderCard(
   settings: Settings,
 ): Promise<Blob> {
   const bitmap = await loadBitmap(photo);
+  // At full quality the picture keeps the photo's own size; otherwise it is
+  // the social-media 1080. Everything drawn on it scales to match.
+  const longest =
+    settings.photoQuality === "full"
+      ? Math.min(PHOTO_MAX.full, Math.max(bitmap.width, bitmap.height))
+      : CARD_SIZE;
   const { width, height } = cardSize(
     { width: bitmap.width, height: bitmap.height },
     settings.squareCrop,
+    longest,
   );
+  const scale = Math.max(1, Math.max(width, height) / CARD_SIZE);
 
   const canvas = document.createElement("canvas");
   canvas.width = width;
@@ -114,10 +126,10 @@ export async function renderCard(
 
   const lines = stampLines(
     buildStamp(entry, settings),
-    stampType(settings.stampSize),
+    stampType(settings.stampSize) * scale,
     width,
   );
-  if (lines.length > 0) drawStamp(ctx, lines, settings, width, height);
+  if (lines.length > 0) drawStamp(ctx, lines, settings, width, height, scale);
 
   return new Promise<Blob>((resolve, reject) => {
     canvas.toBlob(

@@ -185,7 +185,7 @@ export function PlacePicker({
           <li>
             <button
               type="button"
-              onClick={() => onChange(manualPlace(trimmed))}
+              onClick={() => onChange(manualPlace(trimmed, coords.current))}
               className="w-full py-2.5 text-left text-sm text-accent"
             >
               Use “{trimmed}”

@@ -55,8 +55,8 @@ async function downloadLog(): Promise<void> {
 }
 
 const QUALITIES: Array<{ value: PhotoQuality; label: string; hint: string }> = [
-  { value: "balanced", label: "BALANCED", hint: "1600px · ~150 KB each" },
-  { value: "full", label: "FULL", hint: "As shot · ~3–6 MB each" },
+  { value: "balanced", label: "BALANCED", hint: "1600px photo · 1080px picture" },
+  { value: "full", label: "FULL", hint: "As shot, both · ~3–6 MB" },
 ];
 
 const SIZES: Array<{ value: StampSize; label: string }> = [
@@ -109,9 +109,10 @@ export default function SettingsPage() {
 
         <h2 className="label mt-6">Photo quality</h2>
         <p className="mt-1 text-xs leading-relaxed text-muted">
-          What is kept of each photo. This is the only copy — the saved picture
-          is always 1080px either way, so this is about the archive, and about
-          how much goes up and down over roaming data.
+          What is kept of each photo, and how big the saved picture comes out.
+          Full keeps the camera&rsquo;s own frame end to end; balanced is
+          sized for posting and about a twentieth of the bytes over roaming
+          data.
         </p>
         <div className="mt-3 grid grid-cols-2 gap-px border border-ink bg-ink">
           {QUALITIES.map((quality) => {

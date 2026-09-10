@@ -150,6 +150,24 @@ describe("mergePlaces", () => {
   });
 });
 
+describe("manualPlace", () => {
+  it("takes the phone's position with it, so the map knows which one", () => {
+    const place = manualPlace("Da Michele", { lat: 40.8507, lon: 14.2626 });
+    expect(place.lat).toBe(40.8507);
+    expect(mapsUrl(place)).toContain("40.8507%2C14.2626");
+  });
+
+  it("manages without a position, rather than inventing one", () => {
+    const place = manualPlace("Da Michele");
+    expect(place.lat).toBeUndefined();
+    expect(place.lon).toBeUndefined();
+  });
+
+  it("trims what was typed", () => {
+    expect(manualPlace("  Sorbillo  ").name).toBe("Sorbillo");
+  });
+});
+
 describe("mapsUrl", () => {
   it("uses the coordinates when the place has them", () => {
     const url = mapsUrl({ id: "1", name: "Sorbillo", lat: 40.8507, lon: 14.2626 });

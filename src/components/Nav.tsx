@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useKeyboardInset } from "@/lib/hooks";
 
 const TABS = [
   { href: "/", label: "LOG" },
@@ -18,38 +18,10 @@ export function activeTab(pathname: string): string | null {
   return null;
 }
 
-/**
- * How much of the layout viewport is hidden below what you can actually see
- * — the keyboard, in practice. iOS keeps a fixed element pinned to the
- * layout viewport while the visible one shrinks, which is what strands the
- * bar halfway up the screen; pushing it down by this much puts it back
- * behind the keyboard where it belongs.
- */
-export function keyboardInset(
-  innerHeight: number,
-  viewport: { height: number; offsetTop: number } | null | undefined,
-): number {
-  if (!viewport) return 0;
-  return Math.max(0, Math.round(innerHeight - viewport.height - viewport.offsetTop));
-}
-
 /** Hidden during the capture flow, which owns the whole screen. */
 export function Nav() {
   const pathname = usePathname();
-  const [inset, setInset] = useState(0);
-
-  useEffect(() => {
-    const viewport = window.visualViewport;
-    if (!viewport) return;
-    const update = () =>
-      setInset(keyboardInset(window.innerHeight, viewport));
-    viewport.addEventListener("resize", update);
-    viewport.addEventListener("scroll", update);
-    return () => {
-      viewport.removeEventListener("resize", update);
-      viewport.removeEventListener("scroll", update);
-    };
-  }, []);
+  const inset = useKeyboardInset();
 
   if (pathname.startsWith("/new")) return null;
 

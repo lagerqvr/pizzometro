@@ -8,7 +8,7 @@ export const CARD_PAD = 56;
 export const STAMP_TYPE = 38;
 
 export const STAMP_SIZES: Record<StampSize, number> = {
-  s: 30,
+  s: 24,
   m: 38,
   l: 48,
 };
@@ -50,20 +50,30 @@ export function coverRect(
 }
 
 /**
- * The shape of the saved picture: a square by choice, or the photo's own
- * proportions with the long side at CARD_SIZE.
+ * The shape and size of the saved picture: a square by choice, or the photo's
+ * own proportions. `max` is the longest side it may have — 1080 for a
+ * social-sized picture, or the photo's own dimensions when the point is to
+ * keep everything there was. Never larger than the photo itself: upscaling
+ * invents detail.
  */
 export function cardSize(
   src: { width: number; height: number },
   square: boolean,
+  max = CARD_SIZE,
 ): { width: number; height: number } {
-  if (square || !src.width || !src.height) {
-    return { width: CARD_SIZE, height: CARD_SIZE };
+  if (!src.width || !src.height) return { width: max, height: max };
+
+  if (square) {
+    // The biggest square that can be cut out of the photo.
+    const side = Math.min(max, Math.min(src.width, src.height));
+    return { width: side, height: side };
   }
+
   const ratio = src.width / src.height;
+  const long = Math.min(max, Math.max(src.width, src.height));
   return ratio >= 1
-    ? { width: CARD_SIZE, height: Math.round(CARD_SIZE / ratio) }
-    : { width: Math.round(CARD_SIZE * ratio), height: CARD_SIZE };
+    ? { width: long, height: Math.round(long / ratio) }
+    : { width: Math.round(long * ratio), height: long };
 }
 
 export type Stamp = {
