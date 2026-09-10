@@ -1,0 +1,147 @@
+@import "tailwindcss";
+
+/*
+ * Pizzometro — a plain instrument. Near-black on paper, hairline rules,
+ * the brand orange for anything that matters, everything monospaced.
+ */
+@theme {
+  /* Brand: near-black and two oranges, off the mark itself. */
+  --color-ink: #212121;
+  --color-ink-soft: #424242;
+  --color-paper: #f3f0e7;
+  --color-paper-dim: #e6e1d3;
+  --color-rule: #cdc6b2;
+  --color-muted: #7d7768;
+  --color-accent: #bf360c;
+  --color-accent-warm: #e65100;
+
+  --font-mono: var(--font-plex), ui-monospace, SFMono-Regular, monospace;
+  --font-type: var(--font-courier), var(--font-plex), ui-monospace, monospace;
+
+  --ease-snap: cubic-bezier(0.2, 0.9, 0.2, 1);
+}
+
+:root {
+  color-scheme: light;
+  /* Read by the canvas renderer so the picture uses the same faces as the UI. */
+  --font-mono: var(--font-plex), ui-monospace, monospace;
+  --font-type: var(--font-courier), ui-monospace, monospace;
+}
+
+html,
+body {
+  background: var(--color-paper);
+  color: var(--color-ink);
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior-y: none;
+}
+
+body {
+  font-family: var(--font-mono);
+  min-height: 100dvh;
+}
+
+/* Chrome for the "instrument" look: hairline rules and stamped labels. */
+.rule {
+  border-bottom: 1px solid var(--color-rule);
+}
+.rule-dashed {
+  border-bottom: 1px dashed var(--color-rule);
+}
+
+.label {
+  font-size: 0.6875rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+}
+
+.plate {
+  background: color-mix(in srgb, var(--color-paper) 82%, white);
+  border: 1px solid var(--color-rule);
+}
+
+@keyframes stamp-in {
+  0% {
+    opacity: 0;
+    transform: translateY(6px) scale(0.97);
+  }
+  60% {
+    opacity: 1;
+    transform: translateY(0) scale(1.008);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+.animate-stamp {
+  animation: stamp-in 0.34s var(--ease-snap) both;
+}
+
+@keyframes slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.animate-rise {
+  animation: slide-up 0.3s var(--ease-snap) both;
+}
+
+@keyframes snack-in {
+  from {
+    opacity: 0;
+    transform: translateY(120%);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.animate-snack {
+  animation: snack-in 0.28s var(--ease-snap) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-stamp,
+  .animate-rise,
+  .animate-snack {
+    animation: none;
+  }
+}
+
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  height: 34px;
+  width: 14px;
+  border-radius: 2px;
+  background: var(--color-accent);
+  border: 1px solid var(--color-ink);
+  margin-top: -15px;
+  cursor: grab;
+}
+input[type="range"]::-webkit-slider-runnable-track {
+  height: 4px;
+  background: var(--color-ink);
+}
+input[type="range"]::-moz-range-thumb {
+  height: 34px;
+  width: 14px;
+  border-radius: 2px;
+  background: var(--color-accent);
+  border: 1px solid var(--color-ink);
+}
+input[type="range"]::-moz-range-track {
+  height: 4px;
+  background: var(--color-ink);
+}
