@@ -80,6 +80,13 @@ export type Settings = {
   stampCorner: Corner;
   /** Rule-of-thirds + centering circle in the camera view. */
   cameraGuides: boolean;
+  /**
+   * Shoot with the phone's own camera app instead of the in-page viewfinder.
+   * iOS does not remember camera permission for an installed web app, so the
+   * viewfinder means a permission prompt on every launch; the camera app
+   * needs none.
+   */
+  systemCamera: boolean;
   /** Include each field on the generated picture. */
   stamp: {
     name: boolean;
@@ -92,6 +99,7 @@ export type Settings = {
 export const DEFAULT_SETTINGS: Settings = {
   stampCorner: "tl",
   cameraGuides: true,
+  systemCamera: false,
   // The date is off by default: the picture reads better as three lines.
   stamp: { name: true, rating: true, place: true, date: false },
 };

@@ -102,7 +102,7 @@ export default function NewEntryPage() {
 
       const result = await saveToPhotos(card.blob, entry);
       snack(saveMessage(result), result === "failed" ? "warn" : "ok");
-      router.replace(`/entry/${id}`);
+      router.replace(`/entry?id=${id}`);
     } catch {
       saved.current = false;
       setBusy(false);
@@ -114,6 +114,7 @@ export default function NewEntryPage() {
     return (
       <Camera
         guides={settings.cameraGuides}
+        systemCamera={settings.systemCamera}
         onCapture={onCapture}
         onCancel={() => router.replace("/")}
       />

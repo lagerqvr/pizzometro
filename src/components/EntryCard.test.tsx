@@ -15,7 +15,7 @@ const base: Entry = {
 describe("EntryCard", () => {
   it("links to the entry's own view", () => {
     render(<EntryCard entry={base} />);
-    expect(screen.getByRole("link")).toHaveAttribute("href", "/entry/e1");
+    expect(screen.getByRole("link")).toHaveAttribute("href", "/entry?id=e1");
   });
 
   it("shows the pizzeria under the name", () => {

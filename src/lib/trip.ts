@@ -6,6 +6,7 @@ import type { Rater, Trip } from "./types";
  * somebody else's pizza, and short enough to read down the phone.
  */
 const TRIP_KEY = "pizzometro:trip";
+const RATER_KEY = "pizzometro:rater-id";
 const MARK_KEY = "pizzometro:sync";
 const ALPHABET = "abcdefghijkmnpqrstuvwxyz23456789"; // No l/o/0/1 to read aloud.
 const CODE_LENGTH = 10;
@@ -34,12 +35,25 @@ export function isTripCode(value: unknown): value is string {
   return typeof value === "string" && CODE_PATTERN.test(value);
 }
 
-export function newRater(name: string): Rater {
+/**
+ * Who this phone is, kept apart from which trip it is on. Generating a fresh
+ * id per join would mean leaving and rejoining a trip cost you ownership of
+ * your own ratings — you would no longer be able to delete them.
+ */
+function deviceRaterId(): string {
+  const stored =
+    typeof localStorage === "undefined" ? null : localStorage.getItem(RATER_KEY);
+  if (stored) return stored;
   const id =
     typeof crypto !== "undefined" && "randomUUID" in crypto
       ? crypto.randomUUID()
       : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
-  return { id, name: name.trim().slice(0, 24) || "Anon" };
+  if (typeof localStorage !== "undefined") localStorage.setItem(RATER_KEY, id);
+  return id;
+}
+
+export function newRater(name: string): Rater {
+  return { id: deviceRaterId(), name: name.trim().slice(0, 24) || "Anon" };
 }
 
 /** The initial shown on cards and leaderboard tabs. */

@@ -141,6 +141,12 @@ export default function SettingsPage() {
             checked={settings.cameraGuides}
             onChange={(cameraGuides) => update({ cameraGuides })}
           />
+          <Toggle
+            label="Use the camera app"
+            hint="Skips the built-in viewfinder. iOS forgets camera permission every time an installed web app is opened, so this is the way to stop it asking."
+            checked={settings.systemCamera}
+            onChange={(systemCamera) => update({ systemCamera })}
+          />
         </div>
       </section>
 

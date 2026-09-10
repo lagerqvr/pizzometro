@@ -21,7 +21,10 @@ function later(a: Entry, b: Entry): Entry {
   const vb = versionOf(b);
   if (va !== vb) return va > vb ? a : b;
   if (a.deleted !== b.deleted) return a.deleted ? a : b;
-  return b;
+  // Same version means the same write. Keeping the copy already held means a
+  // pull that re-delivers it — the server allows a few seconds of clock slack
+  // — writes nothing and wakes no screen.
+  return a;
 }
 
 /**

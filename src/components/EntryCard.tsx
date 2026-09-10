@@ -19,7 +19,7 @@ export function EntryCard({ entry, rank }: { entry: Entry; rank?: number }) {
 
   return (
     <Link
-      href={`/entry/${entry.id}`}
+      href={`/entry?id=${entry.id}`}
       className="group flex items-center gap-4 border-b border-dashed border-rule py-3 transition-transform active:scale-[0.99]"
     >
       <div className="relative h-16 w-16 shrink-0 overflow-hidden border border-rule bg-paper-dim">

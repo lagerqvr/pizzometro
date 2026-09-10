@@ -19,10 +19,16 @@ describe("parseSettings", () => {
 
   it("keeps valid values", () => {
     const parsed = parseSettings(
-      '{"stampCorner":"br","cameraGuides":false}',
+      '{"stampCorner":"br","cameraGuides":false,"systemCamera":true}',
     );
     expect(parsed.stampCorner).toBe("br");
     expect(parsed.cameraGuides).toBe(false);
+    expect(parsed.systemCamera).toBe(true);
+  });
+
+  it("defaults to the built-in viewfinder", () => {
+    expect(parseSettings("{}").systemCamera).toBe(false);
+    expect(parseSettings('{"systemCamera":"yes"}').systemCamera).toBe(false);
   });
 
   it("fills in stamp fields missing from an older stored shape", () => {

@@ -4,6 +4,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 type Props = {
   guides: boolean;
+  /** Skip the viewfinder and hand straight over to the camera app. */
+  systemCamera?: boolean;
   onCapture: (photo: Blob) => void;
   onCancel: () => void;
 };
@@ -13,16 +15,19 @@ type Props = {
  * refused — iOS in-app browsers, denied permission — the whole thing falls
  * back to the system camera via a file input, so the flow never dead-ends.
  */
-export function Camera({ guides, onCapture, onCancel }: Props) {
+export function Camera({ guides, systemCamera, onCapture, onCancel }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const [state, setState] = useState<"starting" | "live" | "unavailable">(
-    "starting",
+    systemCamera ? "unavailable" : "starting",
   );
   const [flash, setFlash] = useState(false);
 
   useEffect(() => {
+    // Asking for the camera is what triggers the permission prompt, so when
+    // the camera app is the choice, never ask.
+    if (systemCamera) return;
     let cancelled = false;
     async function start() {
       if (!navigator.mediaDevices?.getUserMedia) {
@@ -54,7 +59,7 @@ export function Camera({ guides, onCapture, onCancel }: Props) {
       streamRef.current?.getTracks().forEach((track) => track.stop());
       streamRef.current = null;
     };
-  }, []);
+  }, [systemCamera]);
 
   const shoot = useCallback(() => {
     const video = videoRef.current;
@@ -92,8 +97,9 @@ export function Camera({ guides, onCapture, onCancel }: Props) {
         {state === "unavailable" && (
           <div className="flex h-full flex-col items-center justify-center gap-5 px-8 text-center text-paper">
             <p className="text-sm leading-relaxed text-paper/70">
-              No viewfinder available here. Use your phone&apos;s camera
-              instead — the rating works exactly the same.
+              {systemCamera
+                ? "Shoot it with the camera app. Frame it square if you can — the picture is cropped to a square."
+                : "No viewfinder available here. Use your phone's camera instead — the rating works exactly the same."}
             </p>
             <button
               type="button"

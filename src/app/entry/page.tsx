@@ -1,8 +1,8 @@
 "use client";
 
-import { use, useCallback, useState } from "react";
+import { Suspense, useCallback, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useConfirm } from "@/components/Confirm";
 import { useSnackbar } from "@/components/Snackbar";
 import { useEntry, usePhotoUrl, useSettings, useTrip } from "@/lib/hooks";
@@ -14,12 +14,14 @@ import { formatStampDate } from "@/lib/compose";
 import { isMine } from "@/lib/merge";
 import { syncNow } from "@/lib/sync";
 
-export default function EntryPage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
-  const { id } = use(params);
+/**
+ * The rating lives in the query string rather than the path, which keeps this
+ * one static page instead of a server-rendered route per id. That is what
+ * lets it open with no signal: the page is in the offline cache, and the
+ * rating itself comes from IndexedDB.
+ */
+function EntryView() {
+  const id = useSearchParams().get("id") ?? "";
   const router = useRouter();
   const snack = useSnackbar();
   const confirm = useConfirm();
@@ -48,11 +50,19 @@ export default function EntryPage({
 
   const remove = useCallback(async () => {
     if (!entry) return;
+    // Anyone on the trip can tidy the shared log, but never by accident:
+    // somebody else's rating is named as theirs before it goes.
+    const mine = isMine(entry, trip?.rater);
+    const owner = entry.rater?.name ?? "someone else";
     const sure = await confirm({
-      title: `Delete “${entry.name}”?`,
-      body: trip
-        ? "It goes from this phone and from the trip. The picture you saved to your photos stays."
-        : "This cannot be undone. The picture you saved to your photos stays.",
+      title: mine
+        ? `Delete “${entry.name}”?`
+        : `Delete ${owner}'s rating of “${entry.name}”?`,
+      body: mine
+        ? trip
+          ? "It goes from this phone and from the trip. The picture you saved to your photos stays."
+          : "This cannot be undone. The picture you saved to your photos stays."
+        : `It goes from the trip, and from ${owner}'s phone the next time they sync.`,
       action: "DELETE",
       destructive: true,
     });
@@ -90,17 +100,19 @@ export default function EntryPage({
         </button>
       </header>
 
-      <div className="animate-rise px-5 pt-4">
+      <div className="animate-rise px-5 pt-3">
         {photo && (
+          /* The picture is sized off the viewport rather than the width, so
+             the whole rating fits on one screen without scrolling. */
           /* eslint-disable-next-line @next/next/no-img-element */
           <img
             src={photo}
             alt={entry.name}
-            className="aspect-square w-full border border-rule object-cover"
+            className="mx-auto block h-[34vh] w-[34vh] max-w-full border border-rule object-cover"
           />
         )}
 
-        <div className="mt-5 flex items-end justify-between">
+        <div className="mt-4 flex items-end justify-between">
           <div className="min-w-0">
             <h2 className="truncate text-lg font-medium">{entry.name}</h2>
             <p className="label mt-0.5">{verdict(entry.rating)}</p>
@@ -113,11 +125,21 @@ export default function EntryPage({
           </div>
         </div>
 
-        <div className="my-5 border-b border-rule" aria-hidden />
+        <div className="my-4 border-b border-rule" aria-hidden />
 
-        <dl className="space-y-0">
-          <Row label="Kind" value={KIND_LABEL[entry.kind]} />
-          {entry.style && <Row label="Style" value={entry.style} />}
+        {/* Short facts share a row; only the ones that can run long get one
+            to themselves. */}
+        <dl>
+          <Pair>
+            <Cell label="Kind" value={KIND_LABEL[entry.kind]} />
+            <Cell label="Date" value={formatStampDate(entry.createdAt)} />
+          </Pair>
+          {(entry.style || (trip && entry.rater)) && (
+            <Pair>
+              <Cell label="Style" value={entry.style ?? "—"} />
+              <Cell label="Rated by" value={entry.rater?.name ?? "—"} />
+            </Pair>
+          )}
           {entry.place && (
             <Row
               label="Location"
@@ -129,40 +151,46 @@ export default function EntryPage({
             />
           )}
           {entry.note && <Row label="Note" value={entry.note} />}
-          <Row label="Date" value={formatStampDate(entry.createdAt)} />
-          {trip && entry.rater && <Row label="Rated by" value={entry.rater.name} />}
         </dl>
 
-        <button
-          type="button"
-          onClick={savePicture}
-          disabled={busy || !entry.photoId}
-          className="mt-6 w-full border border-ink py-4 text-[0.75rem] tracking-[0.22em] transition-transform active:scale-[0.985] disabled:opacity-40"
-        >
-          {busy ? "BUILDING…" : "SAVE PICTURE AGAIN"}
-        </button>
+        <div className="mt-5 grid grid-cols-3 gap-2">
+          <button
+            type="button"
+            onClick={savePicture}
+            disabled={busy || !entry.photoId}
+            className="col-span-2 border border-ink py-4 text-[0.75rem] tracking-[0.22em] transition-transform active:scale-[0.985] disabled:opacity-40"
+          >
+            {busy ? "BUILDING…" : "SAVE PICTURE"}
+          </button>
 
-        {/* Only your own ratings: nobody deletes somebody else's dinner. */}
-        {isMine(entry, trip?.rater) && (
-        <button
-          type="button"
-          onClick={remove}
-          className="mt-3 flex w-full items-center justify-center gap-2 border border-accent py-4 text-[0.75rem] tracking-[0.22em] text-accent transition-transform active:scale-[0.985]"
-        >
-          <svg aria-hidden viewBox="0 0 16 16" className="h-3.5 w-3.5">
-            <path
-              d="M2.5 4h11M6.5 4V2.5h3V4M4 4l.7 9.2A1 1 0 0 0 5.7 14h4.6a1 1 0 0 0 1-.8L12 4M6.6 6.8v4.4M9.4 6.8v4.4"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.2"
-              strokeLinecap="square"
-            />
-          </svg>
-          DELETE THIS RATING
-        </button>
-        )}
+          <button
+            type="button"
+            onClick={remove}
+            aria-label="Delete this rating"
+            className="flex items-center justify-center gap-1.5 border border-accent py-4 text-[0.75rem] tracking-[0.16em] text-accent transition-transform active:scale-[0.985]"
+          >
+            <svg aria-hidden viewBox="0 0 16 16" className="h-3.5 w-3.5">
+              <path
+                d="M2.5 4h11M6.5 4V2.5h3V4M4 4l.7 9.2A1 1 0 0 0 5.7 14h4.6a1 1 0 0 0 1-.8L12 4M6.6 6.8v4.4M9.4 6.8v4.4"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.2"
+                strokeLinecap="square"
+              />
+            </svg>
+            DELETE
+          </button>
+        </div>
       </div>
     </main>
+  );
+}
+
+export default function EntryPage() {
+  return (
+    <Suspense fallback={<p className="label py-20 text-center">LOADING…</p>}>
+      <EntryView />
+    </Suspense>
   );
 }
 
@@ -174,9 +202,26 @@ const KIND_LABEL = {
 
 function Row({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-start justify-between gap-4 border-b border-dashed border-rule py-2.5">
+    <div className="flex items-start justify-between gap-4 border-b border-dashed border-rule py-2">
       <dt className="label shrink-0 pt-0.5">{label}</dt>
       <dd className="text-right text-sm">{value}</dd>
+    </div>
+  );
+}
+
+function Pair({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="grid grid-cols-2 gap-4 border-b border-dashed border-rule py-2">
+      {children}
+    </div>
+  );
+}
+
+function Cell({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="min-w-0">
+      <dt className="label">{label}</dt>
+      <dd className="truncate text-sm">{value}</dd>
     </div>
   );
 }

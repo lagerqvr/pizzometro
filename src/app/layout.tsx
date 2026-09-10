@@ -38,7 +38,9 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#212121",
+  // Paper, like the app and the icon tile: on a light theme colour iOS
+  // and Android both draw the status bar contents dark.
+  themeColor: "#F3F0E7",
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
@@ -52,6 +54,16 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${plex.variable} ${courier.variable}`}>
       <body className="antialiased">
+        {/*
+          * iOS 26 blurs page content as it scrolls under the status bar (its
+          * "scroll edge effect"). The app draws edge to edge, so an opaque
+          * band of paper across that strip means there is nothing to blur but
+          * flat colour. It sits below the camera and the nav.
+          */}
+        <div
+          aria-hidden
+          className="pointer-events-none fixed inset-x-0 top-0 z-30 h-[env(safe-area-inset-top)] bg-paper"
+        />
         <SnackbarProvider>
           <ConfirmProvider>
             <SyncProvider>

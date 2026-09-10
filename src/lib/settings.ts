@@ -17,6 +17,10 @@ export function parseSettings(raw: string | null): Settings {
         typeof parsed.cameraGuides === "boolean"
           ? parsed.cameraGuides
           : DEFAULT_SETTINGS.cameraGuides,
+      systemCamera:
+        typeof parsed.systemCamera === "boolean"
+          ? parsed.systemCamera
+          : DEFAULT_SETTINGS.systemCamera,
       stamp: { ...DEFAULT_SETTINGS.stamp, ...(parsed.stamp ?? {}) },
     };
   } catch {

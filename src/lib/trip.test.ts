@@ -41,8 +41,17 @@ describe("raters", () => {
     expect(newRater("   ").name).toBe("Anon");
   });
 
-  it("gives each device its own id", () => {
-    expect(newRater("Axel").id).not.toBe(newRater("Axel").id);
+  it("keeps the same id across a rejoin, so you keep your own ratings", () => {
+    const first = newRater("Axel");
+    // Leaving and joining again, even under a different name.
+    expect(newRater("Axel").id).toBe(first.id);
+    expect(newRater("Axel B").id).toBe(first.id);
+  });
+
+  it("gives a phone with no stored identity a fresh one", () => {
+    const before = newRater("Axel").id;
+    localStorage.clear();
+    expect(newRater("Axel").id).not.toBe(before);
   });
 
   it("reads an initial off a name", () => {

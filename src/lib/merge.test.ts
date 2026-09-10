@@ -50,6 +50,12 @@ describe("changesFrom", () => {
     expect(changesFrom([mine], [theirs])).toEqual([]);
   });
 
+  it("ignores an entry it already has, byte for byte", () => {
+    // The pull window overlaps by a few seconds, so this arrives twice.
+    const mine = entry({ id: "a", updatedAt: 2_000 });
+    expect(changesFrom([mine], [{ ...mine }])).toEqual([]);
+  });
+
   it("lets a delete win a tie, so a deletion cannot come back", () => {
     const mine = entry({ id: "a", updatedAt: 2_000 });
     const tombstone = entry({ id: "a", updatedAt: 2_000, deleted: true });

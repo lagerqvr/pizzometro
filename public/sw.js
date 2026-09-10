@@ -3,8 +3,18 @@
  * this only keeps the app itself loadable with no signal — the normal case
  * inside a Naples pizzeria.
  */
-const CACHE = "pizzometro-v2";
-const SHELL = ["/", "/leaderboard", "/settings", "/join", "/manifest.webmanifest"];
+// Every screen the app can reach is a static page, so the whole thing is
+// precacheable — including a rating opened with no signal.
+const CACHE = "pizzometro-v3";
+const SHELL = [
+  "/",
+  "/new",
+  "/entry",
+  "/leaderboard",
+  "/settings",
+  "/join",
+  "/manifest.webmanifest",
+];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
