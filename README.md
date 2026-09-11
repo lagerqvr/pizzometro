@@ -14,7 +14,7 @@ name into the corner of a picture ready for social media.
 ```bash
 npm install
 npm run dev        # http://localhost:3000
-npm test           # 302 unit, component and route tests
+npm test           # 311 unit, component and route tests
 npm run typecheck
 npm run build
 ```
@@ -110,12 +110,16 @@ pizzeria name can never run off the edge.
 to Photos, so the app opens the share sheet, where "Save Image" is the first
 option. Android and desktop fall back to a normal download.
 
-**The map** draws the ratings as dots on a flat card, with a scale bar and
-north at the top. There is no basemap: tiles would need the network, a
-provider and an aesthetic that is not this one, and what is actually useful
-on a trip is the shape of the evening — which places were together, which was
-the walk out of the way. The projection is equirectangular, squashed by the
-cosine of the latitude, or Naples comes out stretched.
+**The map** draws the ratings as dots on a flat card with a scale bar, over
+real streets — fetched as geometry from the same OpenStreetMap service the
+place lookup uses and drawn as thin ink lines, rather than as tiles from a
+provider that would look nothing like the rest of this. Two weights, so the
+big roads read as the shape of the place. The projection is equirectangular,
+squashed by the cosine of the latitude, or Naples comes out stretched; it
+fits every rating on the card and will not zoom past 500 m, since three
+pizzerias on one street would otherwise fill it. Dots closer together than a
+fingertip are nudged apart, deterministically, so none can hide under
+another.
 
 **Location** comes from the phone's GPS, resolved through `/api/places`,
 which proxies OpenStreetMap (Overpass for nearby venues, Nominatim for text
@@ -141,6 +145,7 @@ never blocks a rating: typing the name always works.
 | `src/app/api/trip/[code]/` | Push and pull against the shared blob store |
 | `src/lib/` | Pure domain logic — scoring, entries, card layout, places |
 | `src/lib/map.ts` | Projecting ratings onto a flat card |
+| `src/app/api/roads/` | Street geometry for the map |
 | `src/lib/merge.ts` | Merge rules for the shared log |
 | `src/lib/bulk.ts` | Saving every picture at once |
 | `src/lib/wipe.ts` | Taking the app off a phone |

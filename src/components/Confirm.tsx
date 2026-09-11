@@ -123,7 +123,6 @@ export function ConfirmProvider({ children }: { children: React.ReactNode }) {
               </button>
               <button
                 type="button"
-                autoFocus
                 disabled={
                   Boolean(request.confirmText) &&
                   typed.trim().toLowerCase() !==

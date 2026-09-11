@@ -58,6 +58,28 @@ summary,
   outline: none;
 }
 
+/*
+ * A modal is all controls. Safari rings the dialog itself when it opens and
+ * will happily select the title text under a thumb; neither belongs here.
+ * The one thing that must stay selectable is a field you type into.
+ */
+dialog,
+dialog:focus {
+  outline: none;
+}
+
+dialog * {
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+dialog input {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
 body {
   font-family: var(--font-mono);
   min-height: 100dvh;

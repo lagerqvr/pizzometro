@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatSpan, located, project, scaleBar } from "./map";
+import { bboxParam, located, parseRoads, project, scaleBar, spread } from "./map";
 import type { Entry } from "./types";
 
 function at(id: string, lat?: number, lon?: number): Entry {
@@ -74,10 +74,31 @@ describe("project", () => {
     expect(Math.abs(b.x - a.x)).toBeLessThan(Math.abs(b.y - a.y));
   });
 
-  it("centres a single place rather than dividing by zero", () => {
+  it("centres a single place, and still shows ground around it", () => {
     const one = project([at("only", 40.85, 14.26)], 400, 400, 30);
     expect(one.points[0]).toMatchObject({ x: 200, y: 200 });
-    expect(one.spanMeters).toBe(0);
+    // A card showing nothing but one dot would be no map at all.
+    expect(one.spanMeters).toBeGreaterThan(300);
+    expect(one.bounds).not.toBeNull();
+  });
+
+  it("does not zoom past a tight cluster", () => {
+    // Three doors apart: the card still shows a few hundred metres.
+    const tight = project(
+      [at("a", 40.8500, 14.2600), at("b", 40.8502, 14.2602)],
+      400,
+      400,
+      30,
+    );
+    expect(tight.spanMeters).toBeGreaterThan(300);
+  });
+
+  it("can place any coordinate, not only the ratings", () => {
+    const view = project(naples, 400, 400, 30);
+    const michele = view.points.find((p) => p.entry.id === "michele")!;
+    const same = view.place(40.8499, 14.2632);
+    expect(same.x).toBeCloseTo(michele.x, 5);
+    expect(same.y).toBeCloseTo(michele.y, 5);
   });
 
   it("has nothing to draw when nowhere is known", () => {
@@ -86,10 +107,79 @@ describe("project", () => {
     expect(none.missing).toBe(2);
   });
 
-  it("measures how far across the ratings are spread", () => {
-    // Via dei Tribunali to Sorbillo is a few hundred metres.
+  it("measures how much ground the card shows", () => {
     expect(view.spanMeters).toBeGreaterThan(300);
-    expect(view.spanMeters).toBeLessThan(1500);
+    expect(view.spanMeters).toBeLessThan(2000);
+  });
+});
+
+describe("spread", () => {
+  const limit = { width: 400, height: 400, pad: 30 };
+  const pt = (id: string, x: number, y: number) => ({
+    entry: at(id, 40.85, 14.26),
+    x,
+    y,
+  });
+
+  it("leaves dots that are already apart where they are", () => {
+    const points = [pt("a", 100, 100), pt("b", 200, 200)];
+    expect(spread(points, 18, limit)).toEqual(points);
+  });
+
+  it("pushes overlapping dots apart until both can be tapped", () => {
+    const out = spread([pt("a", 200, 200), pt("b", 203, 201)], 18, limit);
+    expect(Math.hypot(out[0].x - out[1].x, out[0].y - out[1].y)).toBeGreaterThanOrEqual(
+      17.5,
+    );
+  });
+
+  it("separates dots sitting exactly on top of each other", () => {
+    const out = spread([pt("a", 200, 200), pt("b", 200, 200)], 18, limit);
+    expect(Math.hypot(out[0].x - out[1].x, out[0].y - out[1].y)).toBeGreaterThan(0);
+  });
+
+  it("is the same every time, so the map does not shuffle", () => {
+    const input = [pt("a", 200, 200), pt("b", 200, 200), pt("c", 201, 200)];
+    expect(spread(input, 18, limit)).toEqual(spread(input, 18, limit));
+  });
+
+  it("keeps every dot on the card", () => {
+    const crowd = Array.from({ length: 8 }, (_, i) => pt(`p${i}`, 380, 380));
+    for (const point of spread(crowd, 24, limit)) {
+      expect(point.x).toBeGreaterThanOrEqual(30);
+      expect(point.x).toBeLessThanOrEqual(370);
+      expect(point.y).toBeGreaterThanOrEqual(30);
+      expect(point.y).toBeLessThanOrEqual(370);
+    }
+  });
+});
+
+describe("bboxParam", () => {
+  it("rounds the box so the same view asks the same question", () => {
+    expect(
+      bboxParam({ south: 40.84991, west: 14.25551, north: 40.851, east: 14.264 }),
+    ).toBe("40.8499,14.2555,40.851,14.264");
+  });
+});
+
+describe("parseRoads", () => {
+  it("keeps lines, drops anything that is not one", () => {
+    const roads = parseRoads({
+      roads: [
+        { m: 1, p: [[40.85, 14.26], [40.851, 14.261]] },
+        { m: 0, p: [[40.85, 14.26]] },
+        { p: "nope" },
+        null,
+      ],
+    });
+    expect(roads).toHaveLength(1);
+    expect(roads[0].major).toBe(true);
+  });
+
+  it("survives junk instead of throwing it at the map", () => {
+    expect(parseRoads(null)).toEqual([]);
+    expect(parseRoads({})).toEqual([]);
+    expect(parseRoads({ roads: "no" })).toEqual([]);
   });
 });
 
@@ -107,10 +197,4 @@ describe("scaleBar", () => {
   });
 });
 
-describe("formatSpan", () => {
-  it("reads in metres up close and kilometres further out", () => {
-    expect(formatSpan(420)).toBe("420 m across");
-    expect(formatSpan(2400)).toBe("2.4 km across");
-    expect(formatSpan(0)).toBe("");
-  });
-});
+

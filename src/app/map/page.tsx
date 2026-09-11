@@ -1,23 +1,48 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Wordmark } from "@/components/Wordmark";
 import { useEntries } from "@/lib/hooks";
-import { formatSpan, project, scaleBar } from "@/lib/map";
+import { bboxParam, parseRoads, project, scaleBar, spread, type Road } from "@/lib/map";
 import { formatRating } from "@/lib/score";
 
 /** The drawing is a fixed square; the screen scales it. */
 const SIZE = 400;
-const PAD = 34;
+const PAD = 30;
+/** No two dots closer than this, or one hides under another. */
+const DOT_GAP = 20;
 
 export default function MapPage() {
   const { entries, loading } = useEntries();
   const [open, setOpen] = useState<string | null>(null);
+  const [roads, setRoads] = useState<Road[]>([]);
 
   const view = project(entries ?? [], SIZE, SIZE, PAD);
-  const bar = scaleBar(view.spanMeters, SIZE - PAD * 2, 110);
-  const selected = view.points.find((point) => point.entry.id === open);
+  const points = spread(view.points, DOT_GAP, {
+    width: SIZE,
+    height: SIZE,
+    pad: PAD,
+  });
+  const bar = scaleBar(view.spanMeters, SIZE, 110);
+  const selected = points.find((point) => point.entry.id === open);
+  const bbox = view.bounds ? bboxParam(view.bounds) : null;
+
+  // Streets for whatever ground the card is showing. A failure here is not
+  // worth a word on screen: the dots still say where everything was.
+  useEffect(() => {
+    if (!bbox) return;
+    let cancelled = false;
+    fetch(`/api/roads?bbox=${bbox}`)
+      .then((response) => response.json())
+      .then((body) => {
+        if (!cancelled) setRoads(parseRoads(body));
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [bbox]);
 
   return (
     <main className="flex-1 pb-28">
@@ -26,7 +51,7 @@ export default function MapPage() {
       <section className="mt-5 px-5">
         {loading ? (
           <p className="label py-10 text-center">LOADING…</p>
-        ) : view.points.length === 0 ? (
+        ) : points.length === 0 ? (
           <p className="py-16 text-center text-sm text-muted">
             Nothing with a location yet. Ratings that name a place turn up
             here.
@@ -38,21 +63,29 @@ export default function MapPage() {
                 viewBox={`0 0 ${SIZE} ${SIZE}`}
                 className="block w-full"
                 role="img"
-                aria-label={`${view.points.length} rated places`}
+                aria-label={`${points.length} rated places`}
               >
-                {/* A grid, so it reads as a map and not as a chart. */}
-                <g stroke="var(--color-rule)" strokeWidth="0.5" opacity="0.7">
-                  {[1, 2, 3].map((n) => (
-                    <line key={`v${n}`} x1={(SIZE / 4) * n} y1="0" x2={(SIZE / 4) * n} y2={SIZE} />
-                  ))}
-                  {[1, 2, 3].map((n) => (
-                    <line key={`h${n}`} x1="0" y1={(SIZE / 4) * n} x2={SIZE} y2={(SIZE / 4) * n} />
+                {/* Two weights, so the big roads read as the shape of the
+                    place rather than as more of the same. */}
+                <g fill="none" strokeLinecap="round" strokeLinejoin="round">
+                  {roads.map((road, index) => (
+                    <polyline
+                      key={index}
+                      className={road.major ? "stroke-muted" : "stroke-rule"}
+                      strokeWidth={road.major ? 2.6 : 1.2}
+                      points={road.points
+                        .map(([lat, lon]) => {
+                          const at = view.place(lat, lon);
+                          return `${at.x.toFixed(1)},${at.y.toFixed(1)}`;
+                        })
+                        .join(" ")}
+                    />
                   ))}
                 </g>
 
                 <text
-                  x={SIZE / 2}
-                  y="16"
+                  x={SIZE - 14}
+                  y="18"
                   textAnchor="middle"
                   className="fill-muted"
                   fontSize="9"
@@ -61,7 +94,7 @@ export default function MapPage() {
                   N
                 </text>
 
-                {view.points.map((point) => {
+                {points.map((point) => {
                   const active = point.entry.id === open;
                   return (
                     <g
@@ -76,6 +109,8 @@ export default function MapPage() {
                         cy={point.y}
                         r={active ? 7 : 5}
                         className={active ? "fill-accent" : "fill-ink"}
+                        stroke="var(--color-paper)"
+                        strokeWidth="1.5"
                       />
                       {active && (
                         <circle
@@ -92,7 +127,7 @@ export default function MapPage() {
                 })}
 
                 {bar && (
-                  <g transform={`translate(${PAD} ${SIZE - 16})`}>
+                  <g transform={`translate(${PAD} ${SIZE - 14})`}>
                     <line x1="0" y1="0" x2={bar.pixels} y2="0" className="stroke-ink" strokeWidth="1.5" />
                     <line x1="0" y1="-3" x2="0" y2="3" className="stroke-ink" strokeWidth="1.5" />
                     <line x1={bar.pixels} y1="-3" x2={bar.pixels} y2="3" className="stroke-ink" strokeWidth="1.5" />
@@ -105,8 +140,7 @@ export default function MapPage() {
             </div>
 
             <p className="mt-2 text-center text-[0.625rem] tracking-[0.16em] text-muted">
-              {view.points.length} PLACES
-              {view.spanMeters > 0 && ` · ${formatSpan(view.spanMeters).toUpperCase()}`}
+              {points.length} {points.length === 1 ? "PLACE" : "PLACES"}
               {view.missing > 0 && ` · ${view.missing} WITHOUT A LOCATION`}
             </p>
 
