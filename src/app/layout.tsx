@@ -1,7 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { IBM_Plex_Mono, Courier_Prime } from "next/font/google";
 import "./globals.css";
-import { AppHeight } from "@/components/AppHeight";
 import { Nav } from "@/components/Nav";
 import { NewRatingButton } from "@/components/NewRatingButton";
 import { ConfirmProvider } from "@/components/Confirm";
@@ -72,11 +71,14 @@ export default function RootLayout({
           * the viewport, so nothing can be left behind when the viewport
           * changes under it.
           */}
-        <AppHeight />
-        <div
-          style={{ height: "var(--app-h, 100dvh)" }}
-          className="relative flex flex-col overflow-hidden"
-        >
+        {/*
+          * lvh, not dvh and not a number measured in JavaScript. The large
+          * viewport is the screen with any browser UI retracted, which in an
+          * installed app is simply the screen — 874 points on the phone this
+          * kept going wrong on, where innerHeight reports 812 and a bar sized
+          * from that sits 62 points above the bottom.
+          */}
+        <div className="relative flex h-lvh flex-col overflow-hidden">
           <SnackbarProvider>
             <ConfirmProvider>
               <SyncProvider>

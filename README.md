@@ -195,6 +195,12 @@ app on iOS places a fixed element at launch and then leaves it there when the
 viewport changes under it, and every attempt to detect that and correct it
 made the bar chase the screen instead.
 
+Its height is `100lvh` — the *large* viewport, the screen with any browser UI
+retracted. Not `dvh`, which is resolved before the screen settles, and not a
+number measured in JavaScript: on the phone this kept going wrong on,
+`innerHeight` reports 812 where the screen is 874, and a bar sized from that
+sits 62 points above the bottom.
+
 ## Deploying
 
 Sync needs one thing on Vercel: a Blob store attached to the project, which

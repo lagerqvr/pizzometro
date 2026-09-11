@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useState } from "react";
 import { TripFooter, Wordmark } from "@/components/Wordmark";
 import { useConfirm } from "@/components/Confirm";
 import { manualSyncMessage } from "@/components/SyncBadge";
@@ -332,8 +332,6 @@ export default function SettingsPage() {
         <EraseButton />
       </section>
 
-      <ViewportReadout />
-
       <TripFooter />
     </main>
   );
@@ -356,76 +354,6 @@ export function onTrip(
       ? members.map((member) => member.name)
       : ratersOf(entries).map((rater) => rater.name);
   return [...new Set([...names, me])];
-}
-
-/**
- * What the browser thinks the screen is.
- *
- * The bottom bar has sat above the bottom of the screen on launch twice now,
- * and twice a reasoned guess at the cause has been wrong. These are the
- * numbers any fix has to be built on, read from the device itself.
- */
-function ViewportReadout() {
-  const [lines, setLines] = useState<string[]>([]);
-  const probe = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const read = () => {
-      const viewport = window.visualViewport;
-      const safe = probe.current
-        ? getComputedStyle(probe.current).paddingBottom
-        : "?";
-      const inset = viewport
-        ? Math.max(
-            0,
-            Math.round(
-              viewport.offsetTop + viewport.height - window.innerHeight,
-            ),
-          )
-        : 0;
-      setLines([
-        `inner ${window.innerHeight} · outer ${window.outerHeight}`,
-        viewport
-          ? `visual ${Math.round(viewport.height)} @ ${Math.round(viewport.offsetTop)} · scale ${viewport.scale.toFixed(2)}`
-          : "visual — none",
-        `screen ${window.screen.height} · dpr ${window.devicePixelRatio}`,
-        `safe bottom ${safe} · computed inset ${inset}`,
-        `standalone ${window.matchMedia("(display-mode: standalone)").matches}`,
-      ]);
-    };
-    const settle = requestAnimationFrame(read);
-    const later = setTimeout(read, 800);
-    window.visualViewport?.addEventListener("resize", read);
-    window.addEventListener("resize", read);
-    window.addEventListener("orientationchange", read);
-    return () => {
-      cancelAnimationFrame(settle);
-      clearTimeout(later);
-      window.visualViewport?.removeEventListener("resize", read);
-      window.removeEventListener("resize", read);
-      window.removeEventListener("orientationchange", read);
-    };
-  }, []);
-
-  return (
-    <section className="mt-8 px-5">
-      <h2 className="label">Viewport</h2>
-      <p className="mt-1 text-xs leading-relaxed text-muted">
-        What this phone reports about its own screen. Here to settle where the
-        bottom bar belongs; it can go once that is known.
-      </p>
-      <div
-        ref={probe}
-        aria-hidden
-        className="h-0 pb-[env(safe-area-inset-bottom)]"
-      />
-      <dl className="mt-2 font-[family-name:var(--font-mono)] text-[0.6875rem] leading-relaxed text-muted">
-        {lines.map((line) => (
-          <dd key={line}>{line}</dd>
-        ))}
-      </dl>
-    </section>
-  );
 }
 
 /** A trip code set the way the app sets one, inside a sentence. */
