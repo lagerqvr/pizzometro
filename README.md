@@ -14,7 +14,7 @@ name into the corner of a picture ready for social media.
 ```bash
 npm install
 npm run dev        # http://localhost:3000
-npm test           # 328 unit, component and route tests
+npm test           # 330 unit, component and route tests
 npm run typecheck
 npm run build
 ```
@@ -127,7 +127,9 @@ another. Wider than a couple of degrees the streets give way to country
 outlines — Natural Earth, simplified hard by `npm run countries` into 143 kB
 of rings that are only fetched when a view is actually that wide. Names come
 from OpenStreetMap too, and any that would land on top of another is dropped:
-two names overlapping is worse than one missing. Names are
+a name is nudged above or below first, and only given up on when there is
+nowhere clear to put it — over a dot it hides a rating, over another name
+neither can be read. Names are
 drawn with a paper knockout behind them, so one crossing a road stays
 readable.
 

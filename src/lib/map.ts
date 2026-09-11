@@ -172,33 +172,47 @@ export function spread(
 export type Label = { name: string; x: number; y: number };
 
 /**
- * Keeps the labels that fit, drops the ones that would land on top of
- * another. Two names overlapping is worse than one name missing, and a map
- * of a region has more towns on it than there is room to say.
+ * Keeps the labels that fit, and moves the rest out of the way.
  *
- * Earlier labels win, so the order they arrive in is the order of
- * importance — and the result does not shuffle between renders.
+ * A name is nudged above or below before it is given up on: over a dot it
+ * hides a rating, and over another name neither can be read. Earlier labels
+ * win, so the order they arrive in is the order of importance — and the
+ * result does not shuffle between renders.
  */
 export function placeLabels(
   labels: Label[],
   size: { width: number; height: number },
+  /** The dots, which a name must not sit on. */
+  dots: Array<{ x: number; y: number }> = [],
   gap = { x: 54, y: 13 },
 ): Label[] {
   const kept: Label[] = [];
+  /** Try where it wants to go, then just above, then just below. */
+  const offsets = [0, -15, 15, -27, 27];
+
   for (const label of labels) {
-    if (
-      label.x < 4 ||
-      label.y < 8 ||
-      label.x > size.width - 4 ||
-      label.y > size.height - 4
-    ) {
-      continue;
+    for (const offset of offsets) {
+      const y = label.y + offset;
+      if (
+        label.x < 4 ||
+        y < 8 ||
+        label.x > size.width - 4 ||
+        y > size.height - 4
+      ) {
+        continue;
+      }
+      const onDot = dots.some(
+        (dot) => Math.abs(dot.x - label.x) < 30 && Math.abs(dot.y - y) < 12,
+      );
+      if (onDot) continue;
+      const onLabel = kept.some(
+        (other) =>
+          Math.abs(other.x - label.x) < gap.x && Math.abs(other.y - y) < gap.y,
+      );
+      if (onLabel) continue;
+      kept.push({ ...label, y });
+      break;
     }
-    const clash = kept.some(
-      (other) =>
-        Math.abs(other.x - label.x) < gap.x && Math.abs(other.y - label.y) < gap.y,
-    );
-    if (!clash) kept.push(label);
   }
   return kept;
 }

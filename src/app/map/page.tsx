@@ -102,6 +102,7 @@ export default function MapPage() {
     ],
     // The bottom strip belongs to the scale bar and the attribution.
     { width: SIZE, height: SIZE - 24 },
+    points,
   );
 
   return (

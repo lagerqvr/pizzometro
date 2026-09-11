@@ -220,7 +220,19 @@ describe("placeLabels", () => {
     expect(kept.map((l) => l.name)).toEqual(["Napoli", "Pompei"]);
   });
 
-  it("drops a name that would land on another", () => {
+  it("moves a name off a dot rather than hiding the rating", () => {
+    const kept = placeLabels(
+      [{ name: "Napoli", x: 200, y: 200 }],
+      size,
+      [{ x: 200, y: 200 }],
+    );
+    expect(kept).toHaveLength(1);
+    // Same column, shifted clear of the dot.
+    expect(kept[0].x).toBe(200);
+    expect(Math.abs(kept[0].y - 200)).toBeGreaterThanOrEqual(12);
+  });
+
+  it("nudges a name that would land on another, before giving up", () => {
     const kept = placeLabels(
       [
         { name: "Napoli", x: 200, y: 200 },
@@ -228,15 +240,20 @@ describe("placeLabels", () => {
       ],
       size,
     );
-    expect(kept.map((l) => l.name)).toEqual(["Napoli"]);
+    expect(kept.map((l) => l.name)).toEqual(["Napoli", "Casoria"]);
+    expect(Math.abs(kept[0].y - kept[1].y)).toBeGreaterThanOrEqual(13);
   });
 
-  it("keeps the first of a crowd, which is the most important", () => {
-    const crowd = ["Napoli", "Portici", "Ercolano", "Torre del Greco"].map(
-      (name, i) => ({ name, x: 200 + i, y: 200 }),
-    );
-    expect(placeLabels(crowd, size)).toHaveLength(1);
-    expect(placeLabels(crowd, size)[0].name).toBe("Napoli");
+  it("gives up on a crowd once there is nowhere left to put one", () => {
+    const crowd = Array.from({ length: 8 }, (_, i) => ({
+      name: `Place ${i}`,
+      x: 200 + i,
+      y: 200,
+    }));
+    const kept = placeLabels(crowd, size);
+    // The most important is always drawn; the rest only if they fit.
+    expect(kept[0].name).toBe("Place 0");
+    expect(kept.length).toBeLessThan(crowd.length);
   });
 
   it("drops names that fall off the card", () => {
@@ -257,7 +274,21 @@ describe("placeLabels", () => {
       { name: "B", x: 104, y: 101 },
       { name: "C", x: 300, y: 300 },
     ];
-    expect(placeLabels(input, size)).toEqual(placeLabels(input, size));
+    const dots = [{ x: 100, y: 100 }];
+    expect(placeLabels(input, size, dots)).toEqual(
+      placeLabels(input, size, dots),
+    );
+  });
+
+  it("drops a name with a dot above and below it too", () => {
+    const boxedIn = placeLabels([{ name: "Napoli", x: 200, y: 200 }], size, [
+      { x: 200, y: 200 },
+      { x: 200, y: 185 },
+      { x: 200, y: 215 },
+      { x: 200, y: 173 },
+      { x: 200, y: 227 },
+    ]);
+    expect(boxedIn).toEqual([]);
   });
 });
 
