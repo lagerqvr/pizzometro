@@ -1,5 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { bboxParam, located, parseRoads, project, scaleBar, spread } from "./map";
+import {
+  bboxParam,
+  located,
+  parseLabels,
+  parseRoads,
+  placeLabels,
+  project,
+  scaleBar,
+  spread,
+} from "./map";
 import type { Entry } from "./types";
 
 function at(id: string, lat?: number, lon?: number): Entry {
@@ -197,4 +206,74 @@ describe("scaleBar", () => {
   });
 });
 
+describe("placeLabels", () => {
+  const size = { width: 400, height: 400 };
 
+  it("keeps names that do not touch", () => {
+    const kept = placeLabels(
+      [
+        { name: "Napoli", x: 100, y: 100 },
+        { name: "Pompei", x: 300, y: 300 },
+      ],
+      size,
+    );
+    expect(kept.map((l) => l.name)).toEqual(["Napoli", "Pompei"]);
+  });
+
+  it("drops a name that would land on another", () => {
+    const kept = placeLabels(
+      [
+        { name: "Napoli", x: 200, y: 200 },
+        { name: "Casoria", x: 210, y: 203 },
+      ],
+      size,
+    );
+    expect(kept.map((l) => l.name)).toEqual(["Napoli"]);
+  });
+
+  it("keeps the first of a crowd, which is the most important", () => {
+    const crowd = ["Napoli", "Portici", "Ercolano", "Torre del Greco"].map(
+      (name, i) => ({ name, x: 200 + i, y: 200 }),
+    );
+    expect(placeLabels(crowd, size)).toHaveLength(1);
+    expect(placeLabels(crowd, size)[0].name).toBe("Napoli");
+  });
+
+  it("drops names that fall off the card", () => {
+    const kept = placeLabels(
+      [
+        { name: "Off left", x: -20, y: 200 },
+        { name: "Off bottom", x: 200, y: 480 },
+        { name: "On", x: 200, y: 200 },
+      ],
+      size,
+    );
+    expect(kept.map((l) => l.name)).toEqual(["On"]);
+  });
+
+  it("gives the same answer every time", () => {
+    const input = [
+      { name: "A", x: 100, y: 100 },
+      { name: "B", x: 104, y: 101 },
+      { name: "C", x: 300, y: 300 },
+    ];
+    expect(placeLabels(input, size)).toEqual(placeLabels(input, size));
+  });
+});
+
+describe("parseLabels", () => {
+  it("reads names and where they belong", () => {
+    expect(
+      parseLabels({ labels: [{ n: "Napoli", at: [40.85, 14.26] }] }),
+    ).toEqual([{ name: "Napoli", lat: 40.85, lon: 14.26 }]);
+  });
+
+  it("ignores anything that is not a named point", () => {
+    expect(
+      parseLabels({
+        labels: [{ n: "Napoli" }, { at: [1, 2] }, null, { n: 5, at: [1, 2] }],
+      }),
+    ).toEqual([]);
+    expect(parseLabels(null)).toEqual([]);
+  });
+});

@@ -4,9 +4,21 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Wordmark } from "@/components/Wordmark";
 import { useEntries } from "@/lib/hooks";
-import { bboxParam, parseRoads, project, scaleBar, spread, type Road } from "@/lib/map";
+import {
+  bboxParam,
+  parseLabels,
+  parseRoads,
+  placeLabels,
+  project,
+  scaleBar,
+  spread,
+  type Label,
+  type Road,
+} from "@/lib/map";
 import { mapsUrl } from "@/lib/places";
 import { formatRating } from "@/lib/score";
+
+type Country = { n: string; at: [number, number]; r: Array<Array<[number, number]>> };
 
 /** The drawing is a fixed square; the screen scales it. */
 const SIZE = 400;
@@ -18,6 +30,8 @@ export default function MapPage() {
   const { entries, loading } = useEntries();
   const [open, setOpen] = useState<string | null>(null);
   const [roads, setRoads] = useState<Road[]>([]);
+  const [named, setNamed] = useState<Array<{ name: string; lat: number; lon: number }>>([]);
+  const [countries, setCountries] = useState<Country[] | null>(null);
 
   const view = project(entries ?? [], SIZE, SIZE, PAD);
   const points = spread(view.points, DOT_GAP, {
@@ -37,13 +51,57 @@ export default function MapPage() {
     fetch(`/api/roads?bbox=${bbox}`)
       .then((response) => response.json())
       .then((body) => {
-        if (!cancelled) setRoads(parseRoads(body));
+        if (cancelled) return;
+        setRoads(parseRoads(body));
+        setNamed(parseLabels(body));
       })
       .catch(() => {});
     return () => {
       cancelled = true;
     };
   }, [bbox]);
+
+  // Country outlines only matter once the view is wider than streets are
+  // worth drawing, so the file is fetched then and not before.
+  const wide = view.bounds
+    ? Math.max(
+        view.bounds.north - view.bounds.south,
+        view.bounds.east - view.bounds.west,
+      ) > 2
+    : false;
+
+  useEffect(() => {
+    if (!wide || countries) return;
+    let cancelled = false;
+    fetch("/countries.json")
+      .then((response) => response.json())
+      .then((body) => {
+        if (!cancelled) setCountries(body.countries ?? []);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [wide, countries]);
+
+  // Every name that wants to be on the map, most important first, then only
+  // those that do not land on one another.
+  const labels: Label[] = placeLabels(
+    [
+      ...(wide && countries
+        ? countries.map((country) => ({
+            name: country.n.toUpperCase(),
+            ...view.place(country.at[1], country.at[0]),
+          }))
+        : []),
+      ...named.map((entry) => ({
+        name: entry.name,
+        ...view.place(entry.lat, entry.lon),
+      })),
+    ],
+    // The bottom strip belongs to the scale bar and the attribution.
+    { width: SIZE, height: SIZE - 24 },
+  );
 
   return (
     <main className="flex-1 pb-28">
@@ -70,6 +128,23 @@ export default function MapPage() {
                 role="img"
                 aria-label={`${points.length} rated places`}
               >
+                {wide &&
+                  countries?.map((country) =>
+                    country.r.map((ring, index) => (
+                      <polygon
+                        key={`${country.n}-${index}`}
+                        className="fill-paper-dim stroke-rule"
+                        strokeWidth="0.8"
+                        points={ring
+                          .map(([lon, lat]) => {
+                            const at = view.place(lat, lon);
+                            return `${at.x.toFixed(1)},${at.y.toFixed(1)}`;
+                          })
+                          .join(" ")}
+                      />
+                    )),
+                  )}
+
                 {/* Two weights, so the big roads read as the shape of the
                     place rather than as more of the same. */}
                 <g fill="none" strokeLinecap="round" strokeLinejoin="round">
@@ -87,6 +162,20 @@ export default function MapPage() {
                     />
                   ))}
                 </g>
+
+                {labels.map((label) => (
+                  <text
+                    key={`${label.name}-${label.x}-${label.y}`}
+                    x={label.x}
+                    y={label.y}
+                    textAnchor="middle"
+                    className="fill-muted"
+                    fontSize="8"
+                    letterSpacing="0.5"
+                  >
+                    {label.name}
+                  </text>
+                ))}
 
                 <text
                   x={SIZE - 14}
@@ -141,6 +230,16 @@ export default function MapPage() {
                     </text>
                   </g>
                 )}
+                <text
+                  x={SIZE - 6}
+                  y={SIZE - 5}
+                  textAnchor="end"
+                  className="fill-muted"
+                  fontSize="6.5"
+                  opacity="0.8"
+                >
+                  © OpenStreetMap contributors
+                </text>
               </svg>
             </div>
 

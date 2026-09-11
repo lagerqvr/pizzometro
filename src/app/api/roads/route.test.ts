@@ -19,19 +19,31 @@ describe("detailFor", () => {
 
   it("keeps only the roads that describe a region", () => {
     expect(detailFor(1.5).roads).toBe("motorway|trunk|primary");
-    expect(detailFor(8).roads).toBe("motorway|trunk");
+  });
+
+  it("stops asking for roads once outlines carry the drawing", () => {
+    // A continent's worth of motorways is an enormous answer to no purpose.
+    expect(detailFor(8).roads).toBeNull();
+    expect(detailFor(8).places).toBe("city");
+  });
+
+  it("names smaller places the closer in the view is", () => {
+    expect(detailFor(0.01).places).toContain("suburb");
+    expect(detailFor(0.3).places).toContain("village");
+    expect(detailFor(1.5).places).not.toContain("village");
   });
 
   it("never asks for more than a phone can draw", () => {
     for (const span of [0.005, 0.06, 0.4, 2, 11]) {
       expect(detailFor(span).limit).toBeLessThanOrEqual(900);
-      expect(detailFor(span).limit).toBeGreaterThan(0);
+      expect(detailFor(span).placeLimit).toBeLessThanOrEqual(60);
     }
   });
 
   it("asks for less as the view grows, never more", () => {
-    const spans = [0.01, 0.1, 1, 5];
-    const counts = spans.map((s) => detailFor(s).roads.split("|").length);
+    const counts = [0.01, 0.1, 1].map(
+      (span) => detailFor(span).roads!.split("|").length,
+    );
     for (let i = 1; i < counts.length; i += 1) {
       expect(counts[i]).toBeLessThanOrEqual(counts[i - 1]);
     }

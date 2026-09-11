@@ -11,7 +11,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "icons": "node scripts/icons.mjs",
-    "trips": "node scripts/trips.mjs"
+    "trips": "node scripts/trips.mjs",
+    "countries": "node scripts/countries.mjs"
   },
   "dependencies": {
     "@vercel/blob": "^2.8.0",

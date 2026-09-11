@@ -168,6 +168,41 @@ export function spread(
   return moved;
 }
 
+/** A name to put on the map, once it is known where it goes. */
+export type Label = { name: string; x: number; y: number };
+
+/**
+ * Keeps the labels that fit, drops the ones that would land on top of
+ * another. Two names overlapping is worse than one name missing, and a map
+ * of a region has more towns on it than there is room to say.
+ *
+ * Earlier labels win, so the order they arrive in is the order of
+ * importance — and the result does not shuffle between renders.
+ */
+export function placeLabels(
+  labels: Label[],
+  size: { width: number; height: number },
+  gap = { x: 54, y: 13 },
+): Label[] {
+  const kept: Label[] = [];
+  for (const label of labels) {
+    if (
+      label.x < 4 ||
+      label.y < 8 ||
+      label.x > size.width - 4 ||
+      label.y > size.height - 4
+    ) {
+      continue;
+    }
+    const clash = kept.some(
+      (other) =>
+        Math.abs(other.x - label.x) < gap.x && Math.abs(other.y - label.y) < gap.y,
+    );
+    if (!clash) kept.push(label);
+  }
+  return kept;
+}
+
 /** A round number of metres that fits inside `maxPixels` of the drawing. */
 export function scaleBar(
   spanMeters: number,
@@ -193,6 +228,25 @@ export function bboxParam(bounds: Bounds): string {
     round(bounds.north),
     round(bounds.east),
   ].join(",");
+}
+
+/** The names that came back with the streets. */
+export function parseLabels(input: unknown): Array<{ name: string; lat: number; lon: number }> {
+  if (!input || typeof input !== "object") return [];
+  const list = (input as { labels?: unknown }).labels;
+  if (!Array.isArray(list)) return [];
+  const names: Array<{ name: string; lat: number; lon: number }> = [];
+  for (const item of list) {
+    if (!item || typeof item !== "object") continue;
+    const name = (item as { n?: unknown }).n;
+    const at = (item as { at?: unknown }).at;
+    if (typeof name !== "string" || !Array.isArray(at) || at.length !== 2) {
+      continue;
+    }
+    if (!Number.isFinite(at[0]) || !Number.isFinite(at[1])) continue;
+    names.push({ name, lat: at[0], lon: at[1] });
+  }
+  return names;
 }
 
 /** A street, as the points it passes through. */

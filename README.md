@@ -14,7 +14,7 @@ name into the corner of a picture ready for social media.
 ```bash
 npm install
 npm run dev        # http://localhost:3000
-npm test           # 318 unit, component and route tests
+npm test           # 327 unit, component and route tests
 npm run typecheck
 npm run build
 ```
@@ -123,7 +123,11 @@ squashed by the cosine of the latitude, or Naples comes out stretched; it
 fits every rating on the card and will not zoom past 500 m, since three
 pizzerias on one street would otherwise fill it. Dots closer together than a
 fingertip are nudged apart, deterministically, so none can hide under
-another. Only ratings with coordinates can be drawn: a place picked from the
+another. Wider than a couple of degrees the streets give way to country
+outlines — Natural Earth, simplified hard by `npm run countries` into 143 kB
+of rings that are only fetched when a view is actually that wide. Names come
+from OpenStreetMap too, and any that would land on top of another is dropped:
+two names overlapping is worse than one missing. Only ratings with coordinates can be drawn: a place picked from the
 list has them, and one typed by hand takes the phone's position, but one
 typed before the app did that has nothing to place — the empty map says so
 and points at Edit.
@@ -189,6 +193,10 @@ everything would need nothing but the URL.
 Two masters live in `public/`: `pizzometro.svg` is the bare mark, inlined in
 the header and served as the favicon, and `pizzometro_app.svg` is the same
 mark on its near-black tile, which is what an installed app shows.
+`npm run countries` rebuilds `public/countries.json` from a Natural Earth
+1:110m download; it is public domain, so it can simply be shipped. Map data
+is OpenStreetMap's, attributed on the map itself as ODbL requires.
+
 `npm run icons` renders every PNG size from them and copies the bare mark to
 `src/app/icon.svg`, so the mark is only ever edited in one place. The
 maskable variant scales the art into the 80% safe circle.
