@@ -43,8 +43,18 @@ function rememberedCount(): number {
   return Number.isFinite(stored) && stored > 0 ? Math.min(stored, 12) : 0;
 }
 
+/**
+ * The last read, kept so moving between tabs does not go back to storage and
+ * rebuild every thumbnail before anything can be drawn. It is only a first
+ * paint: a fresh read always follows and replaces it.
+ */
+let lastRead: Entry[] | null = null;
+
+/** Pictures already read out of storage, by their key. */
+const photoCache = new Map<string, Blob>();
+
 export function useEntries() {
-  const [entries, setEntries] = useState<Entry[] | null>(null);
+  const [entries, setEntries] = useState<Entry[] | null>(() => lastRead);
   const [error, setError] = useState<string | null>(null);
   // Read once, before the first paint, so the skeleton is there immediately.
   const [expected] = useState(rememberedCount);
@@ -52,6 +62,7 @@ export function useEntries() {
   const refresh = useCallback(() => {
     db.listEntries()
       .then((found) => {
+        lastRead = found;
         setEntries(found);
         if (typeof localStorage !== "undefined") {
           localStorage.setItem(COUNT_KEY, String(found.length));
@@ -129,7 +140,7 @@ export function usePhotoUrl(
     let cancelled = false;
 
     const load = async () => {
-      let blob = await db.getPhoto(photoId);
+      let blob = photoCache.get(photoId) ?? (await db.getPhoto(photoId));
       if (!blob && photoUrl) {
         try {
           const response = await fetch(photoUrl);
@@ -142,6 +153,10 @@ export function usePhotoUrl(
         }
       }
       if (!blob || cancelled) return;
+      // Small enough to keep: thumbnails are what the log asks for again and
+      // again, and reading them back out of storage is what made it slow.
+      if (photoCache.size > 60) photoCache.clear();
+      photoCache.set(photoId, blob);
       objectUrl = URL.createObjectURL(blob);
       setLoaded({ id: photoId, url: objectUrl });
     };

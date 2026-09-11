@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { IBM_Plex_Mono, Courier_Prime } from "next/font/google";
 import "./globals.css";
+import { AppHeight } from "@/components/AppHeight";
 import { Nav } from "@/components/Nav";
 import { NewRatingButton } from "@/components/NewRatingButton";
 import { ConfirmProvider } from "@/components/Confirm";
@@ -71,7 +72,11 @@ export default function RootLayout({
           * the viewport, so nothing can be left behind when the viewport
           * changes under it.
           */}
-        <div className="relative flex h-dvh flex-col overflow-hidden">
+        <AppHeight />
+        <div
+          style={{ height: "var(--app-h, 100dvh)" }}
+          className="relative flex flex-col overflow-hidden"
+        >
           <SnackbarProvider>
             <ConfirmProvider>
               <SyncProvider>
