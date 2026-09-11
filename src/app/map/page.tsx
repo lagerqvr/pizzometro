@@ -178,7 +178,7 @@ export default function MapPage() {
                     fontSize="8"
                     letterSpacing="0.5"
                     stroke="var(--color-paper)"
-                    strokeWidth="2.5"
+                    strokeWidth="4.5"
                     strokeLinejoin="round"
                     paintOrder="stroke"
                   >
