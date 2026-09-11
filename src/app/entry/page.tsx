@@ -221,6 +221,16 @@ function EntryView() {
             )}
 
             <label className="plate block px-4 py-3">
+              <span className="label">Date</span>
+              <input
+                type="date"
+                value={draft.date}
+                onChange={(event) => edit({ ...draft, date: event.target.value })}
+                className="mt-1 w-full bg-transparent text-base outline-none"
+              />
+            </label>
+
+            <label className="plate block px-4 py-3">
               <span className="label">Note</span>
               <input
                 value={draft.note}

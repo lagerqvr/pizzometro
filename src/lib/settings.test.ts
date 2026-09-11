@@ -40,15 +40,20 @@ describe("parseSettings", () => {
     expect(parseSettings('{"photoQuality":"tiny"}').photoQuality).toBe("full");
   });
 
-  it("defaults to a mirrored camera and square pictures", () => {
+  it("defaults to a mirrored picture, kept in the photo's own shape", () => {
     expect(parseSettings("{}").mirrorCamera).toBe(true);
-    expect(parseSettings("{}").squareCrop).toBe(true);
+    expect(parseSettings("{}").squareCrop).toBe(false);
   });
 
-  it("keeps those two once they are turned off", () => {
-    const parsed = parseSettings('{"mirrorCamera":false,"squareCrop":false}');
+  it("starts in the bottom-left corner, in small type", () => {
+    expect(parseSettings("{}").stampCorner).toBe("bl");
+    expect(parseSettings("{}").stampSize).toBe("s");
+  });
+
+  it("keeps those two once they are changed", () => {
+    const parsed = parseSettings('{"mirrorCamera":false,"squareCrop":true}');
     expect(parsed.mirrorCamera).toBe(false);
-    expect(parsed.squareCrop).toBe(false);
+    expect(parsed.squareCrop).toBe(true);
   });
 
   it("fills in stamp fields missing from an older stored shape", () => {

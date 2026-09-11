@@ -9,6 +9,7 @@ describe("activeTab", () => {
 
   it("lights the tab that owns the screen", () => {
     expect(activeTab("/leaderboard")).toBe("/leaderboard");
+    expect(activeTab("/map")).toBe("/map");
     expect(activeTab("/settings")).toBe("/settings");
   });
 

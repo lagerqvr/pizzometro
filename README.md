@@ -14,7 +14,7 @@ name into the corner of a picture ready for social media.
 ```bash
 npm install
 npm run dev        # http://localhost:3000
-npm test           # 285 unit, component and route tests
+npm test           # 302 unit, component and route tests
 npm run typecheck
 npm run build
 ```
@@ -110,6 +110,13 @@ pizzeria name can never run off the edge.
 to Photos, so the app opens the share sheet, where "Save Image" is the first
 option. Android and desktop fall back to a normal download.
 
+**The map** draws the ratings as dots on a flat card, with a scale bar and
+north at the top. There is no basemap: tiles would need the network, a
+provider and an aesthetic that is not this one, and what is actually useful
+on a trip is the shape of the evening — which places were together, which was
+the walk out of the way. The projection is equirectangular, squashed by the
+cosine of the latitude, or Naples comes out stretched.
+
 **Location** comes from the phone's GPS, resolved through `/api/places`,
 which proxies OpenStreetMap (Overpass for nearby venues, Nominatim for text
 search). The proxy exists because those services want a real `User-Agent` a
@@ -128,10 +135,12 @@ never blocks a rating: typing the name always works.
 | `src/app/new/page.tsx` | Shoot → rate → preview → save |
 | `src/app/entry/page.tsx` | One rating: review, edit, save the picture |
 | `src/app/leaderboard/page.tsx` | Ranked board, split by person |
+| `src/app/map/page.tsx` | Where the ratings happened |
 | `src/app/settings/page.tsx` | Trip, picture shape, stamp, camera, the scale, data |
 | `src/app/join/page.tsx` | The other end of an invite link |
 | `src/app/api/trip/[code]/` | Push and pull against the shared blob store |
 | `src/lib/` | Pure domain logic — scoring, entries, card layout, places |
+| `src/lib/map.ts` | Projecting ratings onto a flat card |
 | `src/lib/merge.ts` | Merge rules for the shared log |
 | `src/lib/bulk.ts` | Saving every picture at once |
 | `src/lib/wipe.ts` | Taking the app off a phone |

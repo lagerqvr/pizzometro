@@ -128,3 +128,54 @@ describe("fieldsFor styles", () => {
     }
   });
 });
+
+describe("the date on a rating", () => {
+  it("keeps the moment it was entered when nothing is typed", () => {
+    const at = new Date(2026, 8, 12, 20, 30).getTime();
+    expect(
+      toEntry({ ...EMPTY_DRAFT, date: "" }, { id: "x", createdAt: at })
+        .createdAt,
+    ).toBe(at);
+  });
+
+  it("moves a rating to the evening it was actually eaten", () => {
+    // Entered the next morning, put back to the night before.
+    const entered = new Date(2026, 8, 13, 9, 0).getTime();
+    const moved = toEntry(
+      { ...EMPTY_DRAFT, date: "2026-09-12" },
+      { id: "x", createdAt: entered },
+    ).createdAt;
+    const at = new Date(moved);
+    expect(at.getFullYear()).toBe(2026);
+    expect(at.getMonth()).toBe(8);
+    expect(at.getDate()).toBe(12);
+    // The time of day it was entered is kept, so the log's order holds.
+    expect(at.getHours()).toBe(9);
+  });
+
+  it("ignores a date that is not one", () => {
+    const at = new Date(2026, 8, 12, 20, 30).getTime();
+    // A Date rolls impossible days over rather than refusing them.
+    for (const junk of [
+      "",
+      "tomorrow",
+      "2026-13-40",
+      "2026-02-30",
+      "12.9.2026",
+      "2026-9-1",
+    ]) {
+      expect(
+        toEntry({ ...EMPTY_DRAFT, date: junk }, { id: "x", createdAt: at })
+          .createdAt,
+      ).toBe(at);
+    }
+  });
+
+  it("round-trips through the form", () => {
+    const entry = toEntry(
+      { ...EMPTY_DRAFT, date: "2026-09-12" },
+      { id: "x", createdAt: Date.now() },
+    );
+    expect(toDraft(entry).date).toBe("2026-09-12");
+  });
+});

@@ -38,6 +38,26 @@ body {
   overscroll-behavior-y: none;
 }
 
+/*
+ * Anything you press is a control, not prose: iOS otherwise flashes it blue
+ * and offers to select the label.
+ */
+button,
+a,
+label,
+summary,
+[role="button"] {
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* Keyboard users still get a ring; a finger does not need one. */
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
 body {
   font-family: var(--font-mono);
   min-height: 100dvh;

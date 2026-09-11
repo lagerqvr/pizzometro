@@ -118,12 +118,12 @@ export type Settings = {
 };
 
 export const DEFAULT_SETTINGS: Settings = {
-  stampCorner: "tl",
-  stampSize: "m",
+  stampCorner: "bl",
+  stampSize: "s",
   cameraGuides: true,
   systemCamera: false,
   mirrorCamera: true,
-  squareCrop: true,
+  squareCrop: false,
   photoQuality: "full",
   // The date is off by default: the picture reads better as three lines.
   stamp: { name: true, rating: true, place: true, date: false },

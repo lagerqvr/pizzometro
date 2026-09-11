@@ -262,8 +262,8 @@ export default function SettingsPage() {
             onChange={(cameraGuides) => update({ cameraGuides })}
           />
           <Toggle
-            label="Mirror the camera"
-            hint="The viewfinder and the picture it takes are flipped left to right, so what you frame is what you keep"
+            label="Mirror the picture"
+            hint="Flips the photo left to right after it is taken. The viewfinder still shows what the lens sees."
             checked={settings.mirrorCamera}
             onChange={(mirrorCamera) => update({ mirrorCamera })}
           />

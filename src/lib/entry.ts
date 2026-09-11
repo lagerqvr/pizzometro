@@ -49,6 +49,8 @@ export type Draft = {
   rating: number;
   place: Place | null;
   note: string;
+  /** When it was eaten, as yyyy-mm-dd. Empty means "when it was entered". */
+  date: string;
 };
 
 export const EMPTY_DRAFT: Draft = {
@@ -58,6 +60,7 @@ export const EMPTY_DRAFT: Draft = {
   rating: 7,
   place: null,
   note: "",
+  date: "",
 };
 
 export type ValidationError = { field: keyof Draft; message: string };
@@ -83,6 +86,37 @@ const FALLBACK_NAME: Record<EntryKind, string> = {
   other: "Dolce",
 };
 
+/** yyyy-mm-dd as local midday, which no timezone can push onto another day. */
+export function dateToTime(date: string, fallback: number): number {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date.trim());
+  if (!match) return fallback;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const at = new Date(year, month - 1, day, 12, 0, 0);
+  // A Date rolls an impossible day over instead of refusing it — the 40th of
+  // month 13 becomes a real day in 2027 — so the parts have to be checked
+  // against what came back.
+  if (
+    at.getFullYear() !== year ||
+    at.getMonth() !== month - 1 ||
+    at.getDate() !== day
+  ) {
+    return fallback;
+  }
+  // Keep the time of day it was first entered, so the log's order holds.
+  const original = new Date(fallback);
+  at.setHours(original.getHours(), original.getMinutes(), 0, 0);
+  return at.getTime();
+}
+
+/** The other direction, for the date field. */
+export function timeToDate(time: number): string {
+  const at = new Date(time);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${at.getFullYear()}-${pad(at.getMonth() + 1)}-${pad(at.getDate())}`;
+}
+
 /** Normalises a draft into an Entry, dropping fields the kind doesn't use. */
 export function toEntry(
   draft: Draft,
@@ -91,7 +125,7 @@ export function toEntry(
   const fields = fieldsFor(draft.kind);
   return {
     id: opts.id,
-    createdAt: opts.createdAt,
+    createdAt: dateToTime(draft.date, opts.createdAt),
     photoId: opts.photoId,
     kind: draft.kind,
     name: draft.name.trim() || FALLBACK_NAME[draft.kind],
@@ -110,6 +144,7 @@ export function toDraft(entry: Entry): Draft {
     rating: entry.rating,
     place: entry.place ?? null,
     note: entry.note ?? "",
+    date: timeToDate(entry.createdAt),
   };
 }
 

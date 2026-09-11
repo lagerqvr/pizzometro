@@ -52,7 +52,7 @@ type Props = {
   square?: boolean;
   /** Skip the viewfinder and hand straight over to the camera app. */
   systemCamera?: boolean;
-  /** Flip left to right, in the preview and in what is saved. */
+  /** Flip the taken picture left to right. The viewfinder shows the lens. */
   mirror?: boolean;
   onCapture: (photo: Blob) => void;
   onCancel: () => void;
@@ -127,8 +127,8 @@ export function Camera({
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
     if (mirror) {
-      // The preview is flipped, so the file has to be flipped too — what you
-      // framed is what you keep.
+      // Done here rather than to the viewfinder: the preview should show
+      // what the lens sees, and the flip belongs to the picture.
       ctx.translate(canvas.width, 0);
       ctx.scale(-1, 1);
     }
@@ -151,9 +151,7 @@ export function Camera({
             playsInline
             muted
             autoPlay
-            className={`h-full w-full object-cover ${
-              mirror ? "-scale-x-100" : ""
-            }`}
+            className="h-full w-full object-cover"
           />
         )}
 

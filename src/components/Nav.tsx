@@ -7,6 +7,7 @@ import { useKeyboardInset } from "@/lib/hooks";
 const TABS = [
   { href: "/", label: "LOG" },
   { href: "/leaderboard", label: "RANKS" },
+  { href: "/map", label: "MAP" },
   { href: "/settings", label: "SETUP" },
 ] as const;
 
@@ -14,6 +15,7 @@ const TABS = [
 export function activeTab(pathname: string): string | null {
   if (pathname === "/" || pathname.startsWith("/entry")) return "/";
   if (pathname.startsWith("/leaderboard")) return "/leaderboard";
+  if (pathname.startsWith("/map")) return "/map";
   if (pathname.startsWith("/settings")) return "/settings";
   return null;
 }
@@ -32,7 +34,7 @@ export function Nav() {
       style={inset > 0 ? { transform: `translateY(${inset}px)` } : undefined}
       className="fixed inset-x-0 bottom-0 z-40 border-t border-rule bg-paper/95 backdrop-blur-sm"
     >
-      <div className="mx-auto grid max-w-lg grid-cols-3 pb-[env(safe-area-inset-bottom)]">
+      <div className="mx-auto grid max-w-lg grid-cols-4 pb-[env(safe-area-inset-bottom)]">
         {TABS.map((tab) => {
           const current = active === tab.href;
           return (

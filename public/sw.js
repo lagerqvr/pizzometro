@@ -11,6 +11,7 @@ const SHELL = [
   "/new",
   "/entry",
   "/leaderboard",
+  "/map",
   "/settings",
   "/join",
   "/manifest.webmanifest",
