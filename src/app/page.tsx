@@ -1,13 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { EntryCard } from "@/components/EntryCard";
+import { EntryCard, EntryCardSkeleton } from "@/components/EntryCard";
 import { Wordmark } from "@/components/Wordmark";
 import { useEntries } from "@/lib/hooks";
 import { formatRating, stats } from "@/lib/score";
 
 export default function HomePage() {
-  const { entries, loading } = useEntries();
+  const { entries, loading, expected } = useEntries();
   const summary = stats(entries ?? []);
 
   return (
@@ -31,7 +31,14 @@ export default function HomePage() {
 
         <section className="px-5">
           {loading ? (
-            <p className="label py-10 text-center">LOADING…</p>
+            // The shape of what is coming, rather than a word that then jumps.
+            <ul className="pt-2">
+              {Array.from({ length: Math.max(expected, 1) }, (_, index) => (
+                <li key={index}>
+                  <EntryCardSkeleton />
+                </li>
+              ))}
+            </ul>
           ) : entries!.length === 0 ? (
             <div className="py-16 text-center">
               <p className="text-sm text-muted">Nothing rated yet.</p>

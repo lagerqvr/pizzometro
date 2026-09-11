@@ -185,7 +185,7 @@ function EntryView() {
           <img
             src={photo}
             alt={entry.name}
-            className="mx-auto block h-[34vh] w-[34vh] max-w-full border border-rule object-cover"
+            className="animate-fade mx-auto block h-[34vh] w-[34vh] max-w-full border border-rule object-cover"
           />
         )}
 

@@ -30,13 +30,33 @@ import {
 } from "./trip";
 import { DEFAULT_SETTINGS, type Entry, type Settings, type Trip } from "./types";
 
+/**
+ * How many ratings there were last time. Reading IndexedDB takes a moment,
+ * and a list that knows its own length can hold that shape while it waits
+ * instead of flashing a word and then jumping.
+ */
+const COUNT_KEY = "pizzometro:count";
+
+function rememberedCount(): number {
+  if (typeof localStorage === "undefined") return 0;
+  const stored = Number(localStorage.getItem(COUNT_KEY));
+  return Number.isFinite(stored) && stored > 0 ? Math.min(stored, 12) : 0;
+}
+
 export function useEntries() {
   const [entries, setEntries] = useState<Entry[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Read once, before the first paint, so the skeleton is there immediately.
+  const [expected] = useState(rememberedCount);
 
   const refresh = useCallback(() => {
     db.listEntries()
-      .then(setEntries)
+      .then((found) => {
+        setEntries(found);
+        if (typeof localStorage !== "undefined") {
+          localStorage.setItem(COUNT_KEY, String(found.length));
+        }
+      })
       .catch(() => {
         setEntries([]);
         setError("Could not open local storage");
@@ -47,7 +67,7 @@ export function useEntries() {
   // A pull that lands while the log is open should show up in it.
   useEffect(() => subscribeEntries(refresh), [refresh]);
 
-  return { entries, loading: entries === null, error, refresh };
+  return { entries, loading: entries === null, error, refresh, expected };
 }
 
 export function useEntry(id: string) {

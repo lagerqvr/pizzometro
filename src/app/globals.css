@@ -123,6 +123,19 @@ body {
   animation: stamp-in 0.34s var(--ease-snap) both;
 }
 
+/* A picture that has just been read from storage should arrive, not appear. */
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.animate-fade {
+  animation: fade-in 0.25s var(--ease-snap) both;
+}
+
 @keyframes slide-up {
   from {
     opacity: 0;
@@ -154,7 +167,8 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .animate-stamp,
   .animate-rise,
-  .animate-snack {
+  .animate-snack,
+  .animate-fade {
     animation: none;
   }
 }

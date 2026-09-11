@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { EntryCard } from "@/components/EntryCard";
+import { EntryCard, EntryCardSkeleton } from "@/components/EntryCard";
 import { Wordmark } from "@/components/Wordmark";
 import { useEntries, useTrip } from "@/lib/hooks";
 import { byRater, ratersOf } from "@/lib/merge";
@@ -9,7 +9,7 @@ import { formatRating, rank, stats } from "@/lib/score";
 import type { Rater } from "@/lib/types";
 
 export default function LeaderboardPage() {
-  const { entries, loading } = useEntries();
+  const { entries, loading, expected } = useEntries();
   const { trip } = useTrip();
   const [selected, setSelected] = useState<string | null>(null);
 
@@ -80,7 +80,13 @@ export default function LeaderboardPage() {
 
       <section className="mt-6 px-5">
         {loading ? (
-          <p className="label py-10 text-center">LOADING…</p>
+          <ol>
+            {Array.from({ length: Math.max(expected, 1) }, (_, index) => (
+              <li key={index}>
+                <EntryCardSkeleton />
+              </li>
+            ))}
+          </ol>
         ) : ranked.length === 0 ? (
           <p className="py-16 text-center text-sm text-muted">
             The board fills up once you rate something.

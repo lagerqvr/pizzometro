@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { render, screen } from "@testing-library/react";
-import { EntryCard } from "./EntryCard";
+import { EntryCard, EntryCardSkeleton } from "./EntryCard";
 import type { Entry } from "@/lib/types";
 
 const base: Entry = {
@@ -38,5 +38,14 @@ describe("EntryCard", () => {
     expect(screen.queryByText("1")).not.toBeInTheDocument();
     rerender(<EntryCard entry={base} rank={1} />);
     expect(screen.getByText("1")).toBeInTheDocument();
+  });
+});
+
+describe("EntryCardSkeleton", () => {
+  it("holds a card's shape without claiming to be one", () => {
+    const { container } = render(<EntryCardSkeleton />);
+    // Hidden from anything reading the page aloud: it says nothing yet.
+    expect(container.firstChild).toHaveAttribute("aria-hidden");
+    expect(screen.queryByRole("link")).toBeNull();
   });
 });

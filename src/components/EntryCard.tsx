@@ -29,7 +29,7 @@ export function EntryCard({ entry, rank }: { entry: Entry; rank?: number }) {
           <img
             src={photo}
             alt=""
-            className="h-full w-full object-cover"
+            className="animate-fade h-full w-full object-cover"
             loading="lazy"
           />
         ) : (
@@ -60,5 +60,22 @@ export function EntryCard({ entry, rank }: { entry: Entry; rank?: number }) {
         <span className="text-[0.625rem] text-muted">/10</span>
       </div>
     </Link>
+  );
+}
+
+/** The shape of a card, for the moment before the ratings have been read. */
+export function EntryCardSkeleton() {
+  return (
+    <div
+      aria-hidden
+      className="flex animate-pulse items-center gap-4 border-b border-dashed border-rule py-3"
+    >
+      <div className="h-16 w-16 shrink-0 border border-rule bg-paper-dim" />
+      <div className="min-w-0 flex-1">
+        <div className="h-3.5 w-2/5 bg-paper-dim" />
+        <div className="mt-2 h-2.5 w-3/5 bg-paper-dim" />
+      </div>
+      <div className="h-6 w-10 bg-paper-dim" />
+    </div>
   );
 }

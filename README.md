@@ -14,7 +14,7 @@ name into the corner of a picture ready for social media.
 ```bash
 npm install
 npm run dev        # http://localhost:3000
-npm test           # 330 unit, component and route tests
+npm test           # 331 unit, component and route tests
 npm run typecheck
 npm run build
 ```
