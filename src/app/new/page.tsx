@@ -124,7 +124,7 @@ export default function NewEntryPage() {
   }
 
   return (
-    <main className="flex-1 pb-32">
+    <main className="flex-1">
       <header className="flex items-center justify-between px-5 pt-[calc(env(safe-area-inset-top)+2rem)]">
         <button
           type="button"
@@ -225,9 +225,7 @@ export default function NewEntryPage() {
         </div>
       )}
 
-      <div
-        className="fixed inset-x-0 bottom-0 z-40 border-t border-rule bg-paper/95 px-5 py-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] backdrop-blur-sm"
-      >
+      <div className="sticky inset-x-0 bottom-0 z-40 border-t border-rule bg-paper px-5 py-4 pb-[calc(env(safe-area-inset-bottom)+1rem)]">
         <div className="mx-auto max-w-lg">
           <button
             type="button"

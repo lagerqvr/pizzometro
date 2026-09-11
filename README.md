@@ -188,6 +188,13 @@ never blocks a rating: typing the name always works.
 The logic in `src/lib` is deliberately free of React so it can be tested
 directly; the components stay thin.
 
+**The shell** is one screen-high column that never scrolls, with the
+scrolling inside it and the tab bar as its last row. Nothing is pinned to the
+viewport with `position: fixed`, which is the whole point: an installed web
+app on iOS places a fixed element at launch and then leaves it there when the
+viewport changes under it, and every attempt to detect that and correct it
+made the bar chase the screen instead.
+
 ## Deploying
 
 Sync needs one thing on Vercel: a Blob store attached to the project, which

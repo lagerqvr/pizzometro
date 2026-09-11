@@ -42,7 +42,7 @@ function JoinForm() {
   };
 
   return (
-    <main className="flex-1 pb-28">
+    <main className="flex-1 pb-6">
       <Wordmark subtitle="Join a trip" />
 
       <div className="mt-6 px-5">

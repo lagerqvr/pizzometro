@@ -113,7 +113,7 @@ export default function MapPage() {
   );
 
   return (
-    <main className="flex-1 pb-28">
+    <main className="flex-1 pb-6">
       <Wordmark subtitle="Where we ate" />
 
       <section className="mt-5 px-5">

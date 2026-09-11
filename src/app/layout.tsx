@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { IBM_Plex_Mono, Courier_Prime } from "next/font/google";
 import "./globals.css";
 import { Nav } from "@/components/Nav";
+import { NewRatingButton } from "@/components/NewRatingButton";
 import { ConfirmProvider } from "@/components/Confirm";
 import { SnackbarProvider } from "@/components/Snackbar";
 import { ServiceWorker } from "@/components/ServiceWorker";
@@ -64,16 +65,25 @@ export default function RootLayout({
           aria-hidden
           className="pointer-events-none fixed inset-x-0 top-0 z-30 h-[env(safe-area-inset-top)] bg-paper"
         />
-        <SnackbarProvider>
-          <ConfirmProvider>
-            <SyncProvider>
-              <div className="mx-auto flex min-h-dvh w-full max-w-lg flex-col">
-                {children}
-              </div>
-              <Nav />
-            </SyncProvider>
-          </ConfirmProvider>
-        </SnackbarProvider>
+        {/*
+          * One screen-high column that never scrolls, with the scrolling
+          * inside it. The bar is simply its last row: nothing is pinned to
+          * the viewport, so nothing can be left behind when the viewport
+          * changes under it.
+          */}
+        <div className="relative flex h-dvh flex-col overflow-hidden">
+          <SnackbarProvider>
+            <ConfirmProvider>
+              <SyncProvider>
+                <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+                  <div className="mx-auto w-full max-w-lg">{children}</div>
+                </div>
+                <Nav />
+                <NewRatingButton />
+              </SyncProvider>
+            </ConfirmProvider>
+          </SnackbarProvider>
+        </div>
         <ServiceWorker />
       </body>
     </html>

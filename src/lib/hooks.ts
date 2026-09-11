@@ -87,35 +87,6 @@ export function useEntry(id: string) {
 }
 
 /**
- * Asks the browser to place a bottom-pinned element once, on the first frame.
- *
- * The phone reports one consistent height for everything, so there is nothing
- * to measure and correct: iOS simply places the bar at launch against a
- * viewport it then changes, and leaves it there. One forced layout at the
- * start is enough to put it right.
- *
- * Deliberately once. Watching for the problem and correcting it whenever it
- * appeared meant reacting to the visual viewport moving under a finger — the
- * bar ended up chasing the screen and jumping between two positions, which
- * is far worse than the thing it was fixing.
- */
-export function useSettleAtBottom(
-  ref: React.RefObject<HTMLElement | null>,
-): void {
-  useEffect(() => {
-    const frame = requestAnimationFrame(() => {
-      const element = ref.current;
-      if (!element) return;
-      element.style.transform = "translateZ(0)";
-      // Reading this is what makes the browser place it again.
-      void element.offsetHeight;
-      element.style.transform = "";
-    });
-    return () => cancelAnimationFrame(frame);
-  }, [ref]);
-}
-
-/**
  * One object URL per blob, released when that blob is replaced and not a
  * moment sooner. Sharing a single cleanup between two blobs is how stepping
  * back from the preview lost the photo: the card changing revoked the

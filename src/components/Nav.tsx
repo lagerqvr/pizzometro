@@ -1,9 +1,8 @@
 "use client";
 
-import { useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useSettings, useSettleAtBottom } from "@/lib/hooks";
+import { useSettings } from "@/lib/hooks";
 
 const TABS = [
   { href: "/", label: "LOG" },
@@ -24,8 +23,6 @@ export function activeTab(pathname: string): string | null {
 /** Hidden during the capture flow, which owns the whole screen. */
 export function Nav() {
   const pathname = usePathname();
-  const bar = useRef<HTMLElement>(null);
-  useSettleAtBottom(bar);
   const { settings } = useSettings();
   const tabs = TABS.filter((tab) => tab.href !== "/map" || settings.showMap);
 
@@ -34,10 +31,7 @@ export function Nav() {
   const active = activeTab(pathname);
 
   return (
-    <nav
-      ref={bar}
-      className="fixed inset-x-0 bottom-0 z-40 border-t border-rule bg-paper/95 backdrop-blur-sm"
-    >
+    <nav className="shrink-0 border-t border-rule bg-paper">
       <div
         className={`mx-auto grid max-w-lg pb-[env(safe-area-inset-bottom)] ${
           tabs.length === 4 ? "grid-cols-4" : "grid-cols-3"

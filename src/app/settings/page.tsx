@@ -91,7 +91,7 @@ export default function SettingsPage() {
   }, [snack]);
 
   return (
-    <main className="flex-1 pb-28">
+    <main className="flex-1 pb-6">
       <Wordmark subtitle="Setup" />
 
       <TripSection />

@@ -165,7 +165,7 @@ function EntryView() {
   const owner = entry.rater?.name;
 
   return (
-    <main className="flex-1 pb-28">
+    <main className="flex-1 pb-6">
       <header className="flex items-center justify-between px-5 pt-[calc(env(safe-area-inset-top)+2rem)]">
         <button
           type="button"

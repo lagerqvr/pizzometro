@@ -24,7 +24,7 @@ export default function LeaderboardPage() {
   const ranked = rank(byRater(all, who));
 
   return (
-    <main className="flex-1 pb-28">
+    <main className="flex-1 pb-6">
       <Wordmark subtitle="Leaderboard" />
 
       {split && (
