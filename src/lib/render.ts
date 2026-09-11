@@ -161,6 +161,27 @@ export const PHOTO_MAX: Record<PhotoQuality, number> = {
 export const CARD_MAX_FULL = 2048;
 
 /**
+ * The small copy the log shows. A 64px card does not need a 4 MB photo, and
+ * on another phone that photo has to come down the wire first — forty
+ * ratings at full quality is the difference between half a megabyte and a
+ * hundred and sixty.
+ */
+export async function makeThumb(file: Blob, max = 360): Promise<Blob> {
+  const bitmap = await loadBitmap(file);
+  const scale = Math.min(1, max / Math.max(bitmap.width, bitmap.height));
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.round(bitmap.width * scale);
+  canvas.height = Math.round(bitmap.height * scale);
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return file;
+  ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+  if ("close" in bitmap) bitmap.close();
+  return new Promise<Blob>((resolve) => {
+    canvas.toBlob((blob) => resolve(blob ?? file), "image/jpeg", 0.7);
+  });
+}
+
+/**
  * Downscales a camera photo before it goes into IndexedDB, and re-encodes
  * anything that is not already a JPEG — an iPhone hands over HEIC, which
  * only Safari can read.

@@ -12,7 +12,8 @@ function subtitle(entry: Entry): string {
 }
 
 export function EntryCard({ entry, rank }: { entry: Entry; rank?: number }) {
-  const photo = usePhotoUrl(entry);
+  // The card is 64px across: the small copy is all it can show.
+  const photo = usePhotoUrl(entry, "thumb");
   const { trip } = useTrip();
   // Only worth saying whose it is when there is somebody else on the trip.
   const who = trip && entry.rater ? initialOf(entry.rater) : null;

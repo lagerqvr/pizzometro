@@ -47,6 +47,8 @@ export type Entry = {
   photoId?: string;
   /** Where the photo lives in the shared trip, once it has been pushed. */
   photoUrl?: string;
+  /** The small copy, which is all the log needs. */
+  thumbUrl?: string;
   /** Set once the entry belongs to a shared trip. */
   rater?: Rater;
   /** Last local edit. Drives merge order; falls back to createdAt. */

@@ -162,6 +162,11 @@ export async function deletePhoto(id: string): Promise<void> {
   await run(PHOTOS, "readwrite", (store) => store.delete(id));
 }
 
+/** The small copy's key, derived from the photo's own. */
+export function thumbKey(photoId: string): string {
+  return `thumb:${photoId}`;
+}
+
 export function newId(): string {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
     return crypto.randomUUID();

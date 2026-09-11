@@ -1,5 +1,17 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { IDBFactory } from "fake-indexeddb";
+
+// Making a thumbnail wants a canvas, which jsdom has not got. The app always
+// makes one when the rating is saved, so the tests store one too.
+vi.mock("./render", () => ({
+  makeThumb: async () => new Blob(["thumb"], { type: "image/jpeg" }),
+}));
+
+/** A photo and the small copy that always accompanies it. */
+async function storePhoto(id: string) {
+  await db.putPhoto(id, new Blob(["x"], { type: "image/jpeg" }));
+  await db.putPhoto(db.thumbKey(id), new Blob(["t"], { type: "image/jpeg" }));
+}
 import * as db from "./db";
 import { getSyncState, subscribeEntries, syncNow, tripExists } from "./sync";
 import { loadMark, loadRoster, saveTrip } from "./trip";
@@ -150,7 +162,7 @@ describe("a round of syncing", () => {
 
   it("frees the picture of a rating deleted on the other phone", async () => {
     saveTrip({ code: CODE, rater });
-    await db.putPhoto("photo:a", new Blob(["x"], { type: "image/jpeg" }));
+    await storePhoto("photo:a");
     await db.putEntry(entry("a", { photoId: "photo:a" }));
     endpoint([entry("a", { updatedAt: 9_000, deleted: true })]);
 
@@ -164,21 +176,25 @@ describe("a round of syncing", () => {
 describe("photos", () => {
   it("uploads the picture before the rating that points at it", async () => {
     saveTrip({ code: CODE, rater });
-    await db.putPhoto("photo:a", new Blob(["x"], { type: "image/jpeg" }));
+    await storePhoto("photo:a");
     await db.putEntry(entry("a", { photoId: "photo:a" }));
     const { pushed, photos } = endpoint();
 
     await syncNow();
 
-    expect(photos[0]).toContain(`/api/trip/${CODE}/photos/photo:a`);
+    // Both copies go up: the photo, and the one the log will show.
+    expect(photos.some((url) => url.endsWith("/photos/photo:a"))).toBe(true);
+    expect(photos.some((url) => url.endsWith("/photos/thumb:photo:a"))).toBe(true);
     expect(pushed[0][0].photoUrl).toContain("blob.vercel-storage.com");
-    // Recorded locally too, so the next sync does not upload it again.
+    expect(pushed[0][0].thumbUrl).toContain("blob.vercel-storage.com");
+    // Recorded locally too, so the next sync does not upload them again.
     expect((await db.getEntry("a"))?.photoUrl).toBeDefined();
+    expect((await db.getEntry("a"))?.thumbUrl).toBeDefined();
   });
 
   it("holds the entry in the queue when its picture will not go up", async () => {
     saveTrip({ code: CODE, rater });
-    await db.putPhoto("photo:a", new Blob(["x"], { type: "image/jpeg" }));
+    await storePhoto("photo:a");
     await db.putEntry(entry("a", { photoId: "photo:a" }));
 
     vi.stubGlobal(

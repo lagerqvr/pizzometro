@@ -11,6 +11,7 @@ import {
   saveMark,
   saveRoster,
 } from "./trip";
+import { makeThumb } from "./render";
 import { sanitiseEntry, sanitiseRater } from "./wire";
 import type { Entry, Rater, Trip } from "./types";
 
@@ -122,30 +123,42 @@ async function uploadPhotos(
   const prepared: Entry[] = [];
   let complete = true;
 
+  /** Sends one blob up and hands back where it landed. */
+  const send = async (id: string, blob: Blob): Promise<string> => {
+    const response = await request(`/api/trip/${trip.code}/photos/${id}`, {
+      method: "POST",
+      headers: { "content-type": blob.type || "image/jpeg" },
+      body: blob,
+    });
+    if (!response.ok) throw new Error(String(response.status));
+    const { url } = (await response.json()) as { url?: string };
+    if (typeof url !== "string") throw new Error("no url");
+    return url;
+  };
+
   for (const entry of entries) {
-    if (!entry.photoId || entry.photoUrl || entry.deleted) {
+    if (!entry.photoId || entry.deleted) {
       prepared.push(entry);
       continue;
     }
-    const blob = await db.getPhoto(entry.photoId);
-    if (!blob) {
+    if (entry.photoUrl && entry.thumbUrl) {
+      prepared.push(entry);
+      continue;
+    }
+    const photo = await db.getPhoto(entry.photoId);
+    if (!photo) {
       prepared.push(entry);
       continue;
     }
     try {
-      const response = await request(
-        `/api/trip/${trip.code}/photos/${entry.photoId}`,
-        {
-          method: "POST",
-          headers: { "content-type": blob.type || "image/jpeg" },
-          body: blob,
-        },
-      );
-      if (!response.ok) throw new Error(String(response.status));
-      const { url } = (await response.json()) as { url?: string };
-      if (typeof url !== "string") throw new Error("no url");
-      // Same version, so recording the URL costs no extra round of syncing.
-      const updated: Entry = { ...entry, photoUrl: url };
+      const thumbId = db.thumbKey(entry.photoId);
+      const thumb = (await db.getPhoto(thumbId)) ?? (await makeThumb(photo));
+      const [photoUrl, thumbUrl] = await Promise.all([
+        entry.photoUrl ?? send(entry.photoId, photo),
+        entry.thumbUrl ?? send(thumbId, thumb),
+      ]);
+      // Same version, so recording the URLs costs no extra round of syncing.
+      const updated: Entry = { ...entry, photoUrl, thumbUrl };
       await db.putEntry(updated);
       prepared.push(updated);
     } catch {

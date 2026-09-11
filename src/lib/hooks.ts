@@ -132,10 +132,18 @@ export function useObjectUrl(blob: Blob | null): string | null {
  * fetched once and kept locally, so it is there the next time with no
  * signal.
  */
-export function usePhotoUrl(entry?: Pick<Entry, "photoId" | "photoUrl">) {
+export function usePhotoUrl(
+  entry?: Pick<Entry, "photoId" | "photoUrl" | "thumbUrl">,
+  /** The log only needs the small copy — a 64px card, not four megabytes. */
+  size: "full" | "thumb" = "full",
+) {
   const [loaded, setLoaded] = useState<{ id: string; url: string } | null>(null);
-  const photoId = entry?.photoId;
-  const photoUrl = entry?.photoUrl;
+  const wantsThumb = size === "thumb" && Boolean(entry?.thumbUrl);
+  const photoId =
+    entry?.photoId && wantsThumb
+      ? db.thumbKey(entry.photoId)
+      : entry?.photoId;
+  const photoUrl = wantsThumb ? entry?.thumbUrl : entry?.photoUrl;
 
   useEffect(() => {
     if (!photoId) return;

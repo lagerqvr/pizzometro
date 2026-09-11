@@ -14,8 +14,8 @@ import {
   useSettings,
   useTrip,
 } from "@/lib/hooks";
-import { newId, putEntry, putPhoto } from "@/lib/db";
-import { PHOTO_MAX, renderCard, shrinkPhoto } from "@/lib/render";
+import { newId, putEntry, putPhoto, thumbKey } from "@/lib/db";
+import { PHOTO_MAX, makeThumb, renderCard, shrinkPhoto } from "@/lib/render";
 import { saveMessage, saveToPhotos } from "@/lib/share";
 import { syncNow } from "@/lib/sync";
 import type { EntryKind } from "@/lib/types";
@@ -90,6 +90,8 @@ export default function NewEntryPage() {
       const id = newId();
       const photoId = `photo:${id}`;
       await putPhoto(photoId, photo);
+      // The log shows this one; the full photo only ever opens on demand.
+      await putPhoto(thumbKey(photoId), await makeThumb(photo));
       const entry = toEntry(draft, { id, createdAt: Date.now(), photoId });
       await putEntry(trip ? { ...entry, rater: trip.rater } : entry);
       // Straight into the queue; it goes up now or the next time there is

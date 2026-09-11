@@ -148,6 +148,7 @@ export function sanitiseEntry(input: unknown): Entry | null {
     createdAt,
     photoId: isSafeId(raw.photoId) ? raw.photoId : undefined,
     photoUrl: photoUrl(raw.photoUrl),
+    thumbUrl: photoUrl(raw.thumbUrl),
     rater: sanitiseRater(raw.rater),
     updatedAt: time(raw.updatedAt),
     deleted: raw.deleted === true ? true : undefined,

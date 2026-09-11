@@ -87,6 +87,12 @@ itself, and what it saves, so what you framed is what you keep. iOS never
 remembers camera permission for an installed web app, so Setup can hand the
 job to the camera app instead and stop the prompt on every launch.
 
+**A thumbnail** is made alongside every photo and is what the log shows. A
+64px card does not need four megabytes, and on somebody else's phone that
+photo has to come down the wire first: forty ratings is the difference
+between seven hundred kilobytes and a hundred and sixty megabytes. The full
+photo is fetched only when a rating is opened, and kept once it has been.
+
 **Photos** are kept at the camera's own resolution by default, or capped at
 1600px if `Setup → Photo quality` is set to balanced — roughly 3–6 MB against
 150 KB. There is only ever one copy. The setting carries through to the saved
