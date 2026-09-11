@@ -127,7 +127,7 @@ export const DEFAULT_SETTINGS: Settings = {
   mirrorCamera: true,
   squareCrop: false,
   photoQuality: "full",
-  showMap: true,
+  showMap: false,
   // The date is off by default: the picture reads better as three lines.
   stamp: { name: true, rating: true, place: true, date: false },
 };

@@ -48,10 +48,10 @@ describe("parseSettings", () => {
     expect(parseSettings("{}").squareCrop).toBe(false);
   });
 
-  it("shows the map unless it is turned off", () => {
-    expect(parseSettings("{}").showMap).toBe(true);
-    expect(parseSettings('{"showMap":false}').showMap).toBe(false);
-    expect(parseSettings('{"showMap":"no"}').showMap).toBe(true);
+  it("keeps the map hidden until it is asked for", () => {
+    expect(parseSettings("{}").showMap).toBe(false);
+    expect(parseSettings('{"showMap":true}').showMap).toBe(true);
+    expect(parseSettings('{"showMap":"yes"}').showMap).toBe(false);
   });
 
   it("starts in the bottom-left corner, in small type", () => {

@@ -169,6 +169,29 @@ export default function MapPage() {
                   ))}
                 </g>
 
+                {/* Two passes: every knockout, then every name. Drawn one
+                    at a time, a name's halo would cut into the letters of
+                    the one beside it. */}
+                <g
+                  stroke="var(--color-paper)"
+                  strokeWidth="4.5"
+                  strokeLinejoin="round"
+                  fill="none"
+                  aria-hidden
+                >
+                  {labels.map((label) => (
+                    <text
+                      key={`halo-${label.name}-${label.x}-${label.y}`}
+                      x={label.x}
+                      y={label.y}
+                      textAnchor="middle"
+                      fontSize="8"
+                      letterSpacing="0.5"
+                    >
+                      {label.name}
+                    </text>
+                  ))}
+                </g>
                 {labels.map((label) => (
                   <text
                     key={`${label.name}-${label.x}-${label.y}`}
@@ -178,10 +201,6 @@ export default function MapPage() {
                     className="fill-muted"
                     fontSize="8"
                     letterSpacing="0.5"
-                    stroke="var(--color-paper)"
-                    strokeWidth="4.5"
-                    strokeLinejoin="round"
-                    paintOrder="stroke"
                   >
                     {label.name}
                   </text>

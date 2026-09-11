@@ -135,8 +135,9 @@ readable.
 
 Offline, a view already seen still draws: the street data is cached by the
 service worker, since streets do not move. A view never seen before falls
-back to dots and the scale bar. The map can be switched off entirely in
-Setup, which also stops it asking for anything. Only ratings with coordinates can be drawn: a place picked from the
+back to dots and the scale bar. Names are drawn in two passes — every knockout, then every letter — so one
+name's halo cannot cut into the letters beside it. The map is off until it is
+switched on in Setup, which also stops it asking for anything. Only ratings with coordinates can be drawn: a place picked from the
 list has them, and one typed by hand takes the phone's position, but one
 typed before the app did that has nothing to place — the empty map says so
 and points at Edit.
