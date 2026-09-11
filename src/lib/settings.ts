@@ -38,6 +38,10 @@ export function parseSettings(raw: string | null): Settings {
         parsed.photoQuality === "balanced" || parsed.photoQuality === "full"
           ? parsed.photoQuality
           : DEFAULT_SETTINGS.photoQuality,
+      showMap:
+        typeof parsed.showMap === "boolean"
+          ? parsed.showMap
+          : DEFAULT_SETTINGS.showMap,
       stamp: { ...DEFAULT_SETTINGS.stamp, ...(parsed.stamp ?? {}) },
     };
   } catch {

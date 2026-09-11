@@ -5,7 +5,7 @@
  */
 // Every screen the app can reach is a static page, so the whole thing is
 // precacheable — including a rating opened with no signal.
-const CACHE = "pizzometro-v3";
+const CACHE = "pizzometro-v4";
 const SHELL = [
   "/",
   "/new",
@@ -44,7 +44,26 @@ self.addEventListener("fetch", (event) => {
 
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
-  // Place lookups must never be served stale.
+
+  /*
+   * Streets do not move, so the map's data is worth keeping: a view you have
+   * already seen then draws with no signal at all. Everything else under
+   * /api/ is a live answer and must never be served stale.
+   */
+  if (url.pathname === "/api/roads") {
+    event.respondWith(
+      fetch(request)
+        .then((response) => {
+          if (response.ok) {
+            const copy = response.clone();
+            caches.open(CACHE).then((cache) => cache.put(request, copy));
+          }
+          return response;
+        })
+        .catch(() => caches.match(request).then((hit) => hit || Response.json({ roads: [], labels: [] }))),
+    );
+    return;
+  }
   if (url.pathname.startsWith("/api/")) return;
 
   // Network-first for navigations so a deploy is picked up immediately,

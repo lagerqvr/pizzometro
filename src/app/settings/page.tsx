@@ -107,6 +107,15 @@ export default function SettingsPage() {
           />
         </div>
 
+        <div className="mt-2">
+          <Toggle
+            label="Show the map"
+            hint="Off hides the Map tab, and stops it asking for street data"
+            checked={settings.showMap}
+            onChange={(showMap) => update({ showMap })}
+          />
+        </div>
+
         <h2 className="label mt-6">Photo quality</h2>
         <p className="mt-1 text-xs leading-relaxed text-muted">
           What is kept of each photo, and how big the saved picture comes out.

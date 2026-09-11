@@ -14,7 +14,7 @@ name into the corner of a picture ready for social media.
 ```bash
 npm install
 npm run dev        # http://localhost:3000
-npm test           # 327 unit, component and route tests
+npm test           # 328 unit, component and route tests
 npm run typecheck
 npm run build
 ```
@@ -127,7 +127,14 @@ another. Wider than a couple of degrees the streets give way to country
 outlines — Natural Earth, simplified hard by `npm run countries` into 143 kB
 of rings that are only fetched when a view is actually that wide. Names come
 from OpenStreetMap too, and any that would land on top of another is dropped:
-two names overlapping is worse than one missing. Only ratings with coordinates can be drawn: a place picked from the
+two names overlapping is worse than one missing. Names are
+drawn with a paper knockout behind them, so one crossing a road stays
+readable.
+
+Offline, a view already seen still draws: the street data is cached by the
+service worker, since streets do not move. A view never seen before falls
+back to dots and the scale bar. The map can be switched off entirely in
+Setup, which also stops it asking for anything. Only ratings with coordinates can be drawn: a place picked from the
 list has them, and one typed by hand takes the phone's position, but one
 typed before the app did that has nothing to place — the empty map says so
 and points at Edit.

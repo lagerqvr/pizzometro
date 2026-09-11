@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useBottomInset } from "@/lib/hooks";
+import { useBottomInset, useSettings } from "@/lib/hooks";
 
 const TABS = [
   { href: "/", label: "LOG" },
@@ -24,6 +24,8 @@ export function activeTab(pathname: string): string | null {
 export function Nav() {
   const pathname = usePathname();
   const inset = useBottomInset();
+  const { settings } = useSettings();
+  const tabs = TABS.filter((tab) => tab.href !== "/map" || settings.showMap);
 
   if (pathname.startsWith("/new")) return null;
 
@@ -34,8 +36,12 @@ export function Nav() {
       style={inset > 0 ? { transform: `translateY(${inset}px)` } : undefined}
       className="fixed inset-x-0 bottom-0 z-40 border-t border-rule bg-paper/95 backdrop-blur-sm"
     >
-      <div className="mx-auto grid max-w-lg grid-cols-4 pb-[env(safe-area-inset-bottom)]">
-        {TABS.map((tab) => {
+      <div
+        className={`mx-auto grid max-w-lg pb-[env(safe-area-inset-bottom)] ${
+          tabs.length === 4 ? "grid-cols-4" : "grid-cols-3"
+        }`}
+      >
+        {tabs.map((tab) => {
           const current = active === tab.href;
           return (
             <Link

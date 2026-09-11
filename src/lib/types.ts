@@ -108,6 +108,8 @@ export type Settings = {
   /** Crop the saved picture to a square, rather than keeping its shape. */
   squareCrop: boolean;
   photoQuality: PhotoQuality;
+  /** Show the map tab. Off hides it, and stops it asking for map data. */
+  showMap: boolean;
   /** Include each field on the generated picture. */
   stamp: {
     name: boolean;
@@ -125,6 +127,7 @@ export const DEFAULT_SETTINGS: Settings = {
   mirrorCamera: true,
   squareCrop: false,
   photoQuality: "full",
+  showMap: true,
   // The date is off by default: the picture reads better as three lines.
   stamp: { name: true, rating: true, place: true, date: false },
 };

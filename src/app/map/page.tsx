@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Wordmark } from "@/components/Wordmark";
-import { useEntries } from "@/lib/hooks";
+import { useEntries, useSettings } from "@/lib/hooks";
 import {
   bboxParam,
   parseLabels,
@@ -28,6 +28,7 @@ const DOT_GAP = 20;
 
 export default function MapPage() {
   const { entries, loading } = useEntries();
+  const { settings } = useSettings();
   const [open, setOpen] = useState<string | null>(null);
   const [roads, setRoads] = useState<Road[]>([]);
   const [named, setNamed] = useState<Array<{ name: string; lat: number; lon: number }>>([]);
@@ -46,7 +47,7 @@ export default function MapPage() {
   // Streets for whatever ground the card is showing. A failure here is not
   // worth a word on screen: the dots still say where everything was.
   useEffect(() => {
-    if (!bbox) return;
+    if (!bbox || !settings.showMap) return;
     let cancelled = false;
     fetch(`/api/roads?bbox=${bbox}`)
       .then((response) => response.json())
@@ -59,7 +60,7 @@ export default function MapPage() {
     return () => {
       cancelled = true;
     };
-  }, [bbox]);
+  }, [bbox, settings.showMap]);
 
   // Country outlines only matter once the view is wider than streets are
   // worth drawing, so the file is fetched then and not before.
@@ -71,7 +72,7 @@ export default function MapPage() {
     : false;
 
   useEffect(() => {
-    if (!wide || countries) return;
+    if (!wide || countries || !settings.showMap) return;
     let cancelled = false;
     fetch("/countries.json")
       .then((response) => response.json())
@@ -82,7 +83,7 @@ export default function MapPage() {
     return () => {
       cancelled = true;
     };
-  }, [wide, countries]);
+  }, [wide, countries, settings.showMap]);
 
   // Every name that wants to be on the map, most important first, then only
   // those that do not land on one another.
@@ -108,7 +109,11 @@ export default function MapPage() {
       <Wordmark subtitle="Where we ate" />
 
       <section className="mt-5 px-5">
-        {loading ? (
+        {!settings.showMap ? (
+          <p className="py-16 text-center text-sm text-muted">
+            The map is switched off in Setup.
+          </p>
+        ) : loading ? (
           <p className="label py-10 text-center">LOADING…</p>
         ) : points.length === 0 ? (
           <div className="py-16 text-center">
@@ -152,7 +157,7 @@ export default function MapPage() {
                     <polyline
                       key={index}
                       className={road.major ? "stroke-muted" : "stroke-rule"}
-                      strokeWidth={road.major ? 2.6 : 1.2}
+                      strokeWidth={road.major ? 2 : 1.1}
                       points={road.points
                         .map(([lat, lon]) => {
                           const at = view.place(lat, lon);
@@ -172,6 +177,10 @@ export default function MapPage() {
                     className="fill-muted"
                     fontSize="8"
                     letterSpacing="0.5"
+                    stroke="var(--color-paper)"
+                    strokeWidth="2.5"
+                    strokeLinejoin="round"
+                    paintOrder="stroke"
                   >
                     {label.name}
                   </text>
