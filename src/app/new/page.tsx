@@ -9,7 +9,7 @@ import { RatingDial } from "@/components/RatingDial";
 import { useSnackbar } from "@/components/Snackbar";
 import { EMPTY_DRAFT, fieldsFor, toEntry, validate, type Draft } from "@/lib/entry";
 import {
-  useKeyboardInset,
+  useBottomInset,
   useObjectUrl,
   useSettings,
   useTrip,
@@ -33,7 +33,7 @@ export default function NewEntryPage() {
   const snack = useSnackbar();
   const { settings } = useSettings();
   const { trip } = useTrip();
-  const inset = useKeyboardInset();
+  const inset = useBottomInset();
 
   const [step, setStep] = useState<Step>("shoot");
   const [photo, setPhoto] = useState<Blob | null>(null);

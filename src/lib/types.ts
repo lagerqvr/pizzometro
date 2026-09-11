@@ -121,7 +121,7 @@ export const DEFAULT_SETTINGS: Settings = {
   stampCorner: "bl",
   stampSize: "s",
   cameraGuides: true,
-  systemCamera: false,
+  systemCamera: true,
   mirrorCamera: true,
   squareCrop: false,
   photoQuality: "full",

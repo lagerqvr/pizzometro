@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useKeyboardInset } from "@/lib/hooks";
+import { useBottomInset } from "@/lib/hooks";
 
 const TABS = [
   { href: "/", label: "LOG" },
@@ -23,7 +23,7 @@ export function activeTab(pathname: string): string | null {
 /** Hidden during the capture flow, which owns the whole screen. */
 export function Nav() {
   const pathname = usePathname();
-  const inset = useKeyboardInset();
+  const inset = useBottomInset();
 
   if (pathname.startsWith("/new")) return null;
 

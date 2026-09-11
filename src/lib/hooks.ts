@@ -67,15 +67,19 @@ export function useEntry(id: string) {
 }
 
 /**
- * How far the bottom of the layout viewport sits below what can actually be
- * seen — the keyboard, in practice.
+ * How far the bottom of the screen is below the bottom of the layout
+ * viewport, which is where a `fixed` element sits.
  *
- * iOS keeps a fixed element pinned to the layout viewport while the visible
- * one shrinks, which strands a bottom bar halfway up the screen. Everything
- * pinned to the bottom offsets itself by this, so it goes back behind the
- * keyboard where it belongs.
+ * On launch, an installed web app is sometimes laid out shorter than the
+ * screen it is on: the bar then floats a finger's width above the bottom
+ * until something makes the viewport settle — which is why switching tabs
+ * appeared to fix it. Measuring the visible area and pushing the bar down by
+ * the difference puts it where it belongs.
+ *
+ * The keyboard is the same measurement the other way round; it is left
+ * alone, so a bar stays behind the keyboard rather than riding above it.
  */
-export function useKeyboardInset(): number {
+export function useBottomInset(): number {
   const [inset, setInset] = useState(0);
 
   useEffect(() => {
@@ -85,14 +89,19 @@ export function useKeyboardInset(): number {
       setInset(
         Math.max(
           0,
-          Math.round(window.innerHeight - viewport.height - viewport.offsetTop),
+          Math.round(viewport.offsetTop + viewport.height - window.innerHeight),
         ),
       );
+    // Once after mount, because the viewport is still settling at first paint.
+    const settle = requestAnimationFrame(update);
     viewport.addEventListener("resize", update);
     viewport.addEventListener("scroll", update);
+    window.addEventListener("orientationchange", update);
     return () => {
+      cancelAnimationFrame(settle);
       viewport.removeEventListener("resize", update);
       viewport.removeEventListener("scroll", update);
+      window.removeEventListener("orientationchange", update);
     };
   }, []);
 

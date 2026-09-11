@@ -8,7 +8,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { useKeyboardInset } from "@/lib/hooks";
+import { useBottomInset } from "@/lib/hooks";
 
 type Snack = { id: number; message: string; tone: "ok" | "warn" };
 
@@ -26,7 +26,7 @@ export function SnackbarProvider({
   children: React.ReactNode;
 }) {
   const [snack, setSnack] = useState<Snack | null>(null);
-  const inset = useKeyboardInset();
+  const inset = useBottomInset();
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const show = useCallback<SnackbarApi>((message, tone = "ok") => {

@@ -14,7 +14,7 @@ name into the corner of a picture ready for social media.
 ```bash
 npm install
 npm run dev        # http://localhost:3000
-npm test           # 312 unit, component and route tests
+npm test           # 318 unit, component and route tests
 npm run typecheck
 npm run build
 ```
@@ -78,8 +78,10 @@ phones cannot clobber each other, and a merge is decided by last-write-wins
 with deletes winning ties. A delete leaves a tombstone: without one, the entry
 comes straight back on the next pull.
 
-**The viewfinder** asks for the whole sensor and steps down until the device
-agrees — a phone gives 4032px, a laptop webcam refuses outright rather than
+**The camera** is the phone's own by default: iOS forgets camera permission
+for an installed web app on every launch, and the camera app needs none. The
+built-in viewfinder is a setting away, and it asks for the whole sensor and
+steps down until the device agrees — a phone gives 4032px, a laptop webcam refuses outright rather than
 offering what it has, and the last rung asks only for a camera. It can mirror
 itself, and what it saves, so what you framed is what you keep. iOS never
 remembers camera permission for an installed web app, so Setup can hand the
@@ -113,8 +115,10 @@ option. Android and desktop fall back to a normal download.
 **The map** draws the ratings as dots on a flat card with a scale bar, over
 real streets — fetched as geometry from the same OpenStreetMap service the
 place lookup uses and drawn as thin ink lines, rather than as tiles from a
-provider that would look nothing like the rest of this. Two weights, so the
-big roads read as the shape of the place. The projection is equirectangular,
+provider that would look nothing like the rest of this. Two weights, so the big roads read as
+the shape of the place, and less of them as the view widens — a street plan
+over a few blocks, only the motorways across a region, where the roads
+stopping at the water draw the coast for free. The projection is equirectangular,
 squashed by the cosine of the latitude, or Naples comes out stretched; it
 fits every rating on the card and will not zoom past 500 m, since three
 pizzerias on one street would otherwise fill it. Dots closer together than a

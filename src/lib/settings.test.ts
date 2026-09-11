@@ -26,9 +26,12 @@ describe("parseSettings", () => {
     expect(parsed.systemCamera).toBe(true);
   });
 
-  it("defaults to the built-in viewfinder", () => {
-    expect(parseSettings("{}").systemCamera).toBe(false);
-    expect(parseSettings('{"systemCamera":"yes"}').systemCamera).toBe(false);
+  it("defaults to the phone's own camera app", () => {
+    // iOS forgets camera permission for an installed web app every launch,
+    // and the camera app needs none.
+    expect(parseSettings("{}").systemCamera).toBe(true);
+    expect(parseSettings('{"systemCamera":false}').systemCamera).toBe(false);
+    expect(parseSettings('{"systemCamera":"yes"}').systemCamera).toBe(true);
   });
 
   it("keeps full-quality photos unless told otherwise", () => {

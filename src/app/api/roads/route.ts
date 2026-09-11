@@ -15,9 +15,29 @@ export const dynamic = "force-dynamic";
 const UA = "Pizzometro/1.0 (https://pizzometro.lagerqvr.com)";
 const OVERPASS = "https://overpass-api.de/api/interpreter";
 const TIMEOUT_MS = 12_000;
-/** Roughly a city, well past anything a night out covers. */
-const MAX_SPAN_DEGREES = 0.2;
+/** Past this the answer would be enormous and the drawing meaningless. */
+const MAX_SPAN_DEGREES = 12;
 const MAJOR = ["motorway", "trunk", "primary", "secondary"];
+
+/**
+ * Which roads are worth drawing at a given size of view. A street plan is
+ * the point over a few blocks; across a region only the roads that describe
+ * the shape of the place are, and asking for every lane would be a enormous
+ * answer nobody can see.
+ */
+export function detailFor(span: number): { roads: string; limit: number } {
+  if (span <= 0.06) {
+    return {
+      roads: "motorway|trunk|primary|secondary|tertiary|residential|pedestrian|living_street",
+      limit: 900,
+    };
+  }
+  if (span <= 0.4) {
+    return { roads: "motorway|trunk|primary|secondary|tertiary", limit: 800 };
+  }
+  if (span <= 2) return { roads: "motorway|trunk|primary", limit: 700 };
+  return { roads: "motorway|trunk", limit: 600 };
+}
 
 type OverpassWay = {
   tags?: { highway?: string };
@@ -46,7 +66,9 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "bad-bbox" }, { status: 400 });
   }
 
-  const query = `[out:json][timeout:20];way["highway"~"^(motorway|trunk|primary|secondary|tertiary|residential|pedestrian|living_street)$"](${bbox.join(",")});out geom 900;`;
+  const [south, west, north, east] = bbox;
+  const detail = detailFor(Math.max(north - south, east - west));
+  const query = `[out:json][timeout:25];way["highway"~"^(${detail.roads})$"](${bbox.join(",")});out geom ${detail.limit};`;
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);

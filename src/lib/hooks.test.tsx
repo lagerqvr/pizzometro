@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { act, renderHook } from "@testing-library/react";
-import { useKeyboardInset, useObjectUrl } from "./hooks";
+import { useBottomInset, useObjectUrl } from "./hooks";
 
 /**
  * The capture flow holds two blobs at once — the photo and the finished
@@ -60,68 +60,63 @@ describe("useObjectUrl", () => {
 });
 
 /**
- * Everything pinned to the bottom of the screen leans on this: iOS shrinks
- * the visible viewport for the keyboard but leaves fixed elements against
- * the layout one, which is what strands a bar halfway up the screen.
+ * Everything pinned to the bottom of the screen leans on this. An installed
+ * web app is sometimes laid out shorter than the screen it is on, which
+ * leaves the bar floating above the bottom until something makes the
+ * viewport settle.
  */
-describe("useKeyboardInset", () => {
-  function viewport(height: number, offsetTop = 0) {
+describe("useBottomInset", () => {
+  function mount(viewportHeight: number, innerHeight: number, offsetTop = 0) {
     const listeners: Record<string, () => void> = {};
-    return {
-      height,
+    const viewport = {
+      height: viewportHeight,
       offsetTop,
       addEventListener: (name: string, fn: () => void) => {
         listeners[name] = fn;
       },
       removeEventListener: () => {},
-      fire: () => Object.values(listeners).forEach((fn) => fn()),
-      set: (next: number, top = 0) => {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (window.visualViewport as any).height = next;
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (window.visualViewport as any).offsetTop = top;
-      },
     };
+    vi.stubGlobal("visualViewport", viewport);
+    Object.defineProperty(window, "innerHeight", {
+      value: innerHeight,
+      configurable: true,
+    });
+    return { viewport, fire: () => listeners.resize?.() };
   }
 
-  it("is nothing while no keyboard is up", () => {
-    const vv = viewport(844);
-    vi.stubGlobal("visualViewport", vv);
-    Object.defineProperty(window, "innerHeight", { value: 844, configurable: true });
+  it("pushes the bar down when the page is laid out short of the screen", async () => {
+    // The launch bug: 844 points of screen, 704 of layout viewport.
+    const { fire } = mount(844, 704);
+    const { result } = renderHook(() => useBottomInset());
 
-    const { result } = renderHook(() => useKeyboardInset());
+    act(() => fire());
+
+    expect(result.current).toBe(140);
+    vi.unstubAllGlobals();
+  });
+
+  it("leaves the bar alone once the viewport matches the screen", () => {
+    const { fire } = mount(844, 844);
+    const { result } = renderHook(() => useBottomInset());
+    act(() => fire());
     expect(result.current).toBe(0);
     vi.unstubAllGlobals();
   });
 
-  it("measures what the keyboard covers when the viewport shrinks", () => {
-    const vv = viewport(844);
-    vi.stubGlobal("visualViewport", vv);
-    Object.defineProperty(window, "innerHeight", { value: 844, configurable: true });
-
-    const { result } = renderHook(() => useKeyboardInset());
-
-    act(() => {
-      vv.set(508);
-      vv.fire();
-    });
-
-    expect(result.current).toBe(336);
+  it("does not lift the bar above a keyboard", () => {
+    // Keyboard up: the visible area is shorter, and the bar belongs behind it.
+    const { fire } = mount(508, 844);
+    const { result } = renderHook(() => useBottomInset());
+    act(() => fire());
+    expect(result.current).toBe(0);
     vi.unstubAllGlobals();
   });
 
-  it("never pulls a bar upwards", () => {
-    const vv = viewport(844);
-    vi.stubGlobal("visualViewport", vv);
-    Object.defineProperty(window, "innerHeight", { value: 844, configurable: true });
-
-    const { result } = renderHook(() => useKeyboardInset());
-    act(() => {
-      vv.set(900);
-      vv.fire();
-    });
-
-    expect(result.current).toBe(0);
+  it("counts a page scrolled down to reveal something", () => {
+    const { fire } = mount(700, 704, 100);
+    const { result } = renderHook(() => useBottomInset());
+    act(() => fire());
+    expect(result.current).toBe(96);
     vi.unstubAllGlobals();
   });
 });
