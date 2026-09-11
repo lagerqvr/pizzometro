@@ -150,6 +150,17 @@ export function useSettleAtBottom(
     const settle = () => {
       const element = ref.current;
       if (!element) return;
+
+      // Only when it is actually in the wrong place. Nudging blind means
+      // nudging a bar that is already right, which is what jitters.
+      const viewport = window.visualViewport;
+      const bottom = viewport
+        ? viewport.offsetTop + viewport.height
+        : window.innerHeight;
+      if (Math.abs(element.getBoundingClientRect().bottom - bottom) <= 1) {
+        return;
+      }
+
       element.style.transform = "translateZ(0)";
       // Reading this is what makes the browser place it again.
       void element.offsetHeight;
@@ -158,8 +169,9 @@ export function useSettleAtBottom(
 
     const frame = requestAnimationFrame(settle);
     // Launch is when it goes wrong, and the viewport settles a beat later.
-    const soon = setTimeout(settle, 250);
-    const later = setTimeout(settle, 1_000);
+    // Both are free once the bar is where it belongs.
+    const soon = setTimeout(settle, 200);
+    const later = setTimeout(settle, 700);
 
     window.visualViewport?.addEventListener("resize", settle);
     window.addEventListener("resize", settle);

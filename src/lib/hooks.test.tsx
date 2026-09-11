@@ -150,11 +150,16 @@ describe("useSettleAtBottom", () => {
     return { node, writes, reads: () => reads };
   }
 
-  it("places the bar again once the screen has settled", async () => {
+  it("places the bar again when it is in the wrong place", async () => {
     const { node, writes, reads } = element();
-    const ref = { current: node };
-    renderHook(() => useSettleAtBottom(ref));
+    node.getBoundingClientRect = () => ({ bottom: 400 }) as DOMRect;
+    Object.defineProperty(window, "innerHeight", {
+      value: 874,
+      configurable: true,
+    });
+    vi.stubGlobal("visualViewport", undefined);
 
+    renderHook(() => useSettleAtBottom({ current: node }));
     await act(async () => {
       await new Promise((resolve) => setTimeout(resolve, 30));
     });
@@ -163,6 +168,26 @@ describe("useSettleAtBottom", () => {
     expect(writes).toContain("translateZ(0)");
     expect(writes).toContain("");
     expect(reads()).toBeGreaterThan(0);
+    vi.unstubAllGlobals();
+  });
+
+  it("leaves a bar that is already at the bottom alone", async () => {
+    const { node, writes } = element();
+    node.getBoundingClientRect = () => ({ bottom: 874 }) as DOMRect;
+    Object.defineProperty(window, "innerHeight", {
+      value: 874,
+      configurable: true,
+    });
+    vi.stubGlobal("visualViewport", undefined);
+
+    renderHook(() => useSettleAtBottom({ current: node }));
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 30));
+    });
+
+    // Nudging a bar that is already right is what made it jitter.
+    expect(writes).toEqual([]);
+    vi.unstubAllGlobals();
   });
 
   it("does nothing when there is no bar to place", () => {
