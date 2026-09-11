@@ -169,18 +169,27 @@ describe("manualPlace", () => {
 });
 
 describe("mapsUrl", () => {
-  it("uses the coordinates when the place has them", () => {
+  it("opens the listing when the place has a street behind it", () => {
+    // A pin on coordinates shows no opening hours and no photographs.
+    const url = mapsUrl({
+      id: "osm:1",
+      name: "Da Michele",
+      address: "Via Cesare Sersale 1",
+      lat: 40.8499,
+      lon: 14.2632,
+    });
+    expect(decodeURIComponent(url)).toContain("Da Michele, Via Cesare Sersale 1");
+  });
+
+  it("drops a pin when all it has is a point", () => {
     const url = mapsUrl({ id: "1", name: "Sorbillo", lat: 40.8507, lon: 14.2626 });
     expect(url).toContain("query=40.8507%2C14.2626");
   });
 
-  it("falls back to the name and address when it does not", () => {
-    const url = mapsUrl({
-      id: "manual:x",
-      name: "Da Michele",
-      address: "Via Cesare Sersale 1",
-    });
-    expect(decodeURIComponent(url)).toContain("Da Michele, Via Cesare Sersale 1");
+  it("would rather be exact than guess at a bare name", () => {
+    // The typed-in case: a name on its own once opened a map of Germany.
+    const typed = mapsUrl({ id: "manual:x", name: "Da Michele", lat: 40.85, lon: 14.26 });
+    expect(typed).toContain("40.85%2C14.26");
   });
 
   it("escapes what it puts in the query", () => {

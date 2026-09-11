@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Wordmark } from "@/components/Wordmark";
 import { useEntries } from "@/lib/hooks";
 import { bboxParam, parseRoads, project, scaleBar, spread, type Road } from "@/lib/map";
+import { mapsUrl } from "@/lib/places";
 import { formatRating } from "@/lib/score";
 
 /** The drawing is a fixed square; the screen scales it. */
@@ -52,10 +53,14 @@ export default function MapPage() {
         {loading ? (
           <p className="label py-10 text-center">LOADING…</p>
         ) : points.length === 0 ? (
-          <p className="py-16 text-center text-sm text-muted">
-            Nothing with a location yet. Ratings that name a place turn up
-            here.
-          </p>
+          <div className="py-16 text-center">
+            <p className="text-sm text-muted">Nothing to put on a map yet.</p>
+            <p className="mx-auto mt-2 max-w-xs text-xs leading-relaxed text-muted">
+              {view.missing > 0
+                ? `${view.missing} ${view.missing === 1 ? "rating names a place" : "ratings name places"} that were typed in rather than picked from the list, so there are no coordinates to draw. Picking the place again from Edit puts it on the map.`
+                : "Ratings appear here once they have a location."}
+            </p>
+          </div>
         ) : (
           <>
             <div className="plate relative">
@@ -145,6 +150,7 @@ export default function MapPage() {
             </p>
 
             {selected ? (
+              <>
               <Link
                 href={`/entry?id=${selected.entry.id}`}
                 className="mt-3 flex items-center justify-between gap-4 border border-ink px-4 py-3"
@@ -164,6 +170,27 @@ export default function MapPage() {
                   <span className="text-[0.625rem] text-muted">/10</span>
                 </span>
               </Link>
+
+              {selected.entry.place && (
+                <a
+                  href={mapsUrl(selected.entry.place)}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="mt-2 flex w-full items-center justify-center gap-2 border border-accent/40 py-3 text-[0.6875rem] tracking-[0.22em] text-accent"
+                >
+                  <svg aria-hidden viewBox="0 0 16 16" className="h-3.5 w-3.5">
+                    <path
+                      d="M8 14.5s5-4.6 5-8a5 5 0 0 0-10 0c0 3.4 5 8 5 8z"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.2"
+                    />
+                    <circle cx="8" cy="6.4" r="1.8" fill="currentColor" />
+                  </svg>
+                  VIEW IN MAPS
+                </a>
+              )}
+              </>
             ) : (
               <p className="mt-3 text-center text-xs text-muted">
                 Tap a dot to see what it was.

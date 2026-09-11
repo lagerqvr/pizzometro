@@ -166,13 +166,21 @@ export function placeLabel(place?: Place | null): string {
 /**
  * Opens the place in the phone's map app — Google Maps if it is installed,
  * the web map otherwise, and on iOS the web map offers to hand over to Maps.
- * Coordinates beat a name when we have them: no ambiguity about which
- * Sorbillo.
+ *
+ * A name with a street behind it opens the place's own listing, which is
+ * what you want when you are deciding whether to go back. Coordinates alone
+ * only ever drop a pin, so they are the fallback, not the first choice —
+ * but they are what stops a bare name from opening a different Da Michele in
+ * another country.
  */
 export function mapsUrl(place: Place): string {
+  const named = place.name?.trim();
+  const street = place.address?.trim();
   const query =
-    place.lat != null && place.lon != null
-      ? `${place.lat},${place.lon}`
-      : [place.name, place.address].filter(Boolean).join(", ");
-  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
+    named && street
+      ? `${named}, ${street}`
+      : place.lat != null && place.lon != null
+        ? `${place.lat},${place.lon}`
+        : named;
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query ?? "")}`;
 }

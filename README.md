@@ -14,7 +14,7 @@ name into the corner of a picture ready for social media.
 ```bash
 npm install
 npm run dev        # http://localhost:3000
-npm test           # 311 unit, component and route tests
+npm test           # 312 unit, component and route tests
 npm run typecheck
 npm run build
 ```
@@ -119,7 +119,14 @@ squashed by the cosine of the latitude, or Naples comes out stretched; it
 fits every rating on the card and will not zoom past 500 m, since three
 pizzerias on one street would otherwise fill it. Dots closer together than a
 fingertip are nudged apart, deterministically, so none can hide under
-another.
+another. Only ratings with coordinates can be drawn: a place picked from the
+list has them, and one typed by hand takes the phone's position, but one
+typed before the app did that has nothing to place — the empty map says so
+and points at Edit.
+
+**Map links** open a place's own listing when it has a street behind it, and
+drop a pin on the coordinates when all that is known is a point. A bare name
+is never enough on its own: "Da Michele" opens a map of Germany.
 
 **Location** comes from the phone's GPS, resolved through `/api/places`,
 which proxies OpenStreetMap (Overpass for nearby venues, Nominatim for text
