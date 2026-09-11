@@ -10,6 +10,7 @@ import {
   parseRoads,
   placeLabels,
   project,
+  roadPath,
   scaleBar,
   spread,
   type Label,
@@ -31,6 +32,9 @@ export default function MapPage() {
   const { settings } = useSettings();
   const [open, setOpen] = useState<string | null>(null);
   const [roads, setRoads] = useState<Road[]>([]);
+  /** Which view the streets on screen belong to, so "still drawing" is
+   *  something that can be worked out rather than flagged. */
+  const [drawn, setDrawn] = useState<string | null>(null);
   const [named, setNamed] = useState<Array<{ name: string; lat: number; lon: number }>>([]);
   const [countries, setCountries] = useState<Country[] | null>(null);
 
@@ -56,7 +60,10 @@ export default function MapPage() {
         setRoads(parseRoads(body));
         setNamed(parseLabels(body));
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setDrawn(bbox);
+      });
     return () => {
       cancelled = true;
     };
@@ -153,20 +160,25 @@ export default function MapPage() {
 
                 {/* Two weights, so the big roads read as the shape of the
                     place rather than as more of the same. */}
+                {/* Two paths rather than one element per street: five
+                    hundred nodes is enough for a phone to feel. */}
                 <g fill="none" strokeLinecap="round" strokeLinejoin="round">
-                  {roads.map((road, index) => (
-                    <polyline
-                      key={index}
-                      className={road.major ? "stroke-muted" : "stroke-rule"}
-                      strokeWidth={road.major ? 2 : 1.1}
-                      points={road.points
-                        .map(([lat, lon]) => {
-                          const at = view.place(lat, lon);
-                          return `${at.x.toFixed(1)},${at.y.toFixed(1)}`;
-                        })
-                        .join(" ")}
-                    />
-                  ))}
+                  <path
+                    className="stroke-rule"
+                    strokeWidth="1.1"
+                    d={roadPath(
+                      roads.filter((road) => !road.major),
+                      view.place,
+                    )}
+                  />
+                  <path
+                    className="stroke-muted"
+                    strokeWidth="2"
+                    d={roadPath(
+                      roads.filter((road) => road.major),
+                      view.place,
+                    )}
+                  />
                 </g>
 
                 {/* Two passes: every knockout, then every name. Drawn one
@@ -273,6 +285,7 @@ export default function MapPage() {
             </div>
 
             <p className="mt-2 text-center text-[0.625rem] tracking-[0.16em] text-muted">
+              {bbox && drawn !== bbox && "DRAWING STREETS… · "}
               {points.length} {points.length === 1 ? "PLACE" : "PLACES"}
               {view.missing > 0 && ` · ${view.missing} WITHOUT A LOCATION`}
             </p>

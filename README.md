@@ -14,7 +14,7 @@ name into the corner of a picture ready for social media.
 ```bash
 npm install
 npm run dev        # http://localhost:3000
-npm test           # 331 unit, component and route tests
+npm test           # 334 unit, component and route tests
 npm run typecheck
 npm run build
 ```
@@ -121,8 +121,10 @@ option. Android and desktop fall back to a normal download.
 **The map** draws the ratings as dots on a flat card with a scale bar, over
 real streets — fetched as geometry from the same OpenStreetMap service the
 place lookup uses and drawn as thin ink lines, rather than as tiles from a
-provider that would look nothing like the rest of this. Two weights, so the big roads read as
-the shape of the place, and less of them as the view widens — a street plan
+provider that would look nothing like the rest of this. Every street of one weight is drawn as a single path — five hundred separate
+elements is enough for a phone to feel — and points closer together than a
+pixel at the size it will be drawn are dropped before they are ever sent.
+Two weights, so the big roads read as the shape of the place, and less of them as the view widens — a street plan
 over a few blocks, only the motorways across a region, where the roads
 stopping at the water draw the coast for free. The projection is equirectangular,
 squashed by the cosine of the latitude, or Naples comes out stretched; it

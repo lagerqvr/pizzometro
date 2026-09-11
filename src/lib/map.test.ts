@@ -6,6 +6,7 @@ import {
   parseRoads,
   placeLabels,
   project,
+  roadPath,
   scaleBar,
   spread,
 } from "./map";
@@ -306,5 +307,30 @@ describe("parseLabels", () => {
       }),
     ).toEqual([]);
     expect(parseLabels(null)).toEqual([]);
+  });
+});
+
+describe("roadPath", () => {
+  const place = (lat: number, lon: number) => ({ x: lon, y: lat });
+
+  it("joins every road into one path, each starting a new stroke", () => {
+    const d = roadPath(
+      [
+        { major: false, points: [[1, 1], [2, 2]] },
+        { major: false, points: [[5, 5], [6, 6]] },
+      ],
+      place,
+    );
+    // Two moves, so the second road does not begin where the first ended.
+    expect(d.match(/M/g)).toHaveLength(2);
+    expect(d).toBe("M1.0 1.0L2.0 2.0M5.0 5.0L6.0 6.0");
+  });
+
+  it("drops a road that is a single point", () => {
+    expect(roadPath([{ major: false, points: [[1, 1]] }], place)).toBe("");
+  });
+
+  it("has nothing to say about no roads", () => {
+    expect(roadPath([], place)).toBe("");
   });
 });

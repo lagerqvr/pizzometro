@@ -168,6 +168,28 @@ export function spread(
   return moved;
 }
 
+/**
+ * Every road of one weight as a single path.
+ *
+ * Drawn as one element each, five hundred streets are five hundred nodes for
+ * the browser to build and keep — enough to be felt on a phone. As two path
+ * strings it is two.
+ */
+export function roadPath(
+  roads: Road[],
+  place: (lat: number, lon: number) => { x: number; y: number },
+): string {
+  const parts: string[] = [];
+  for (const road of roads) {
+    const points = road.points.map(([lat, lon]) => {
+      const at = place(lat, lon);
+      return `${at.x.toFixed(1)} ${at.y.toFixed(1)}`;
+    });
+    if (points.length > 1) parts.push(`M${points.join("L")}`);
+  }
+  return parts.join("");
+}
+
 /** A name to put on the map, once it is known where it goes. */
 export type Label = { name: string; x: number; y: number };
 

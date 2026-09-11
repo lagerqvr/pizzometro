@@ -18,6 +18,8 @@ const TIMEOUT_MS = 12_000;
 /** Past this the answer would be enormous and the drawing meaningless. */
 const MAX_SPAN_DEGREES = 12;
 const MAJOR = ["motorway", "trunk", "primary", "secondary"];
+/** The map is drawn on a square of this many units; see src/app/map. */
+const CARD_PIXELS = 400;
 
 /**
  * Which roads are worth drawing at a given size of view. A street plan is
@@ -158,16 +160,43 @@ export async function GET(request: Request) {
         ],
       }));
 
+    /*
+     * A pixel at the size this will be drawn — and the roads are drawn one
+     * to two pixels wide. Sending points closer
+     * together than that is bytes over roaming data and work for the phone,
+     * for a bend nobody can see.
+     */
+    const tolerance = Math.max(north - south, east - west) / CARD_PIXELS;
+
     const roads = elements
       .filter((element) => element.type !== "node")
-      .map((way) => ({
-        m: MAJOR.includes(way.tags?.highway ?? "") ? 1 : 0,
-        // Five decimals is about a metre, which is finer than any pixel here.
-        p: (way.geometry ?? []).map((point) => [
-          Math.round(point.lat * 1e5) / 1e5,
-          Math.round(point.lon * 1e5) / 1e5,
-        ]),
-      }))
+      .map((way) => {
+        const points: number[][] = [];
+        for (const point of way.geometry ?? []) {
+          const next = [
+            Math.round(point.lat * 1e5) / 1e5,
+            Math.round(point.lon * 1e5) / 1e5,
+          ];
+          const last = points[points.length - 1];
+          if (
+            last &&
+            Math.abs(next[0] - last[0]) < tolerance &&
+            Math.abs(next[1] - last[1]) < tolerance
+          ) {
+            continue;
+          }
+          points.push(next);
+        }
+        // A road reduced to one point still has a shape; keep its ends.
+        if (points.length === 1 && (way.geometry?.length ?? 0) > 1) {
+          const end = way.geometry![way.geometry!.length - 1];
+          points.push([
+            Math.round(end.lat * 1e5) / 1e5,
+            Math.round(end.lon * 1e5) / 1e5,
+          ]);
+        }
+        return { m: MAJOR.includes(way.tags?.highway ?? "") ? 1 : 0, p: points };
+      })
       .filter((way) => way.p.length > 1);
 
     return NextResponse.json(
