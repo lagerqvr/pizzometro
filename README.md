@@ -6,7 +6,7 @@
 
 A pizza-rating instrument. Built for a pizza trip to Napoli, 11–15.9.2026.
 
-Photograph the pizza, rate it 0–10, and the app stamps the score, place and
+Photograph the pizza, rate it 0–10 to a tenth, and the app stamps the score, place and
 name into the corner of a picture ready for social media.
 
 ## Running it
@@ -14,7 +14,7 @@ name into the corner of a picture ready for social media.
 ```bash
 npm install
 npm run dev        # http://localhost:3000
-npm test           # 333 unit, component and route tests
+npm test           # 334 unit, component and route tests
 npm run typecheck
 npm run build
 ```
