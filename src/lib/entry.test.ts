@@ -179,3 +179,34 @@ describe("the date on a rating", () => {
     expect(toDraft(entry).date).toBe("2026-09-12");
   });
 });
+
+describe("stamp corner", () => {
+  it("defaults to none, meaning the setting decides", () => {
+    expect(EMPTY_DRAFT.corner).toBeNull();
+    expect(
+      toEntry({ ...EMPTY_DRAFT, rating: 8 }, { id: "x", createdAt: 1 }).corner,
+    ).toBeUndefined();
+  });
+
+  it("carries a chosen corner onto the rating", () => {
+    const entry = toEntry(
+      { ...EMPTY_DRAFT, rating: 8, corner: "tr" },
+      { id: "x", createdAt: 1 },
+    );
+    expect(entry.corner).toBe("tr");
+  });
+
+  it("survives a round trip through editing", () => {
+    const entry = toEntry(
+      { ...EMPTY_DRAFT, rating: 8, corner: "br" },
+      { id: "x", createdAt: 1 },
+    );
+    const again = toEntry(toDraft(entry), { id: "x", createdAt: 1 });
+    expect(again.corner).toBe("br");
+  });
+
+  it("leaves an untouched rating on the setting", () => {
+    const entry = toEntry({ ...EMPTY_DRAFT, rating: 8 }, { id: "x", createdAt: 1 });
+    expect(toEntry(toDraft(entry), { id: "x", createdAt: 1 }).corner).toBeUndefined();
+  });
+});

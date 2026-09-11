@@ -78,3 +78,38 @@ export function saveMessage(result: SaveResult): string {
       return "Could not save the picture";
   }
 }
+
+/**
+ * Hands any single file to the phone — the share sheet where there is one,
+ * the downloads folder otherwise. Same path as a picture, but the caller
+ * says what the file is.
+ */
+export async function saveFile(
+  blob: Blob,
+  name: string,
+  type: string,
+): Promise<SaveResult> {
+  const file = new File([blob], name, { type });
+
+  if (
+    typeof navigator !== "undefined" &&
+    typeof navigator.canShare === "function" &&
+    navigator.canShare({ files: [file] })
+  ) {
+    try {
+      await navigator.share({ files: [file] });
+      return "shared";
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") {
+        return "cancelled";
+      }
+      return download(blob, name);
+    }
+  }
+
+  try {
+    return download(blob, name);
+  } catch {
+    return "failed";
+  }
+}

@@ -72,13 +72,13 @@ export default function RootLayout({
           * changes under it.
           */}
         {/*
-          * lvh, not dvh and not a number measured in JavaScript. The large
-          * viewport is the screen with any browser UI retracted, which in an
-          * installed app is simply the screen — 874 points on the phone this
-          * kept going wrong on, where innerHeight reports 812 and a bar sized
-          * from that sits 62 points above the bottom.
+          * dvh: the viewport as it is now. lvh is the screen with browser UI
+          * retracted, which on this phone is 874 where only 812 can be seen —
+          * the bar then hangs below the fold on any screen long enough to
+          * scroll. The shell reflows whenever dvh changes, which is the whole
+          * reason nothing here is pinned.
           */}
-        <div className="relative flex h-lvh flex-col overflow-hidden">
+        <div className="relative flex h-dvh flex-col overflow-hidden">
           <SnackbarProvider>
             <ConfirmProvider>
               <SyncProvider>

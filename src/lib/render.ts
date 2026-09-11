@@ -10,7 +10,7 @@ import {
   stampLines,
   stampType,
 } from "./compose";
-import type { Entry, PhotoQuality, Settings } from "./types";
+import type { Corner, Entry, PhotoQuality, Settings } from "./types";
 
 const INK = "#212121";
 
@@ -55,6 +55,8 @@ function drawStamp(
   ctx: CanvasRenderingContext2D,
   lines: string[],
   settings: Settings,
+  /** This picture's own corner, if it was given one. */
+  corner: Corner | undefined,
   width: number,
   height: number,
   /** 1 for a 1080px picture, more for one kept at the photo's own size. */
@@ -62,7 +64,7 @@ function drawStamp(
 ): void {
   const pad = Math.round(CARD_PAD * scale);
   const { x, align, isTop } = stampLayout(
-    settings.stampCorner,
+    corner ?? settings.stampCorner,
     width,
     pad,
     height,
@@ -129,7 +131,8 @@ export async function renderCard(
     stampType(settings.stampSize) * scale,
     width,
   );
-  if (lines.length > 0) drawStamp(ctx, lines, settings, width, height, scale);
+  if (lines.length > 0)
+    drawStamp(ctx, lines, settings, entry.corner, width, height, scale);
 
   return new Promise<Blob>((resolve, reject) => {
     canvas.toBlob(

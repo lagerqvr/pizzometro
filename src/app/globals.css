@@ -80,9 +80,23 @@ dialog input {
   user-select: text;
 }
 
+/*
+ * The document itself never scrolls. The shell inside is exactly one viewport
+ * tall and carries its own scrolling area, so a scroll out here could only be
+ * the whole page sliding under the app — which is what kept lifting the nav
+ * bar off the bottom.
+ *
+ * No height is set on either: the shell's own h-dvh is the single source of
+ * that, and a second one here is what they disagreed about before.
+ */
+html,
+body {
+  overflow: hidden;
+}
+
 body {
   font-family: var(--font-mono);
-  min-height: 100dvh;
+  overscroll-behavior: none;
 }
 
 /* Chrome for the "instrument" look: hairline rules and stamped labels. */

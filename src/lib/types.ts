@@ -41,6 +41,12 @@ export type Entry = {
   /** Only meaningful for kind === "pizzeria". */
   place?: Place;
   note?: string;
+  /**
+   * Where this one picture puts its text. Absent means "wherever the setting
+   * says", which is the normal case — choosing a corner for one pizza does
+   * not change the default for the next.
+   */
+  corner?: Corner;
   /** Epoch ms. */
   createdAt: number;
   /** Key into the photo blob store; absent if the user skipped the photo. */

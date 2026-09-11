@@ -28,10 +28,27 @@ a pizzeria on roaming data.
 **Getting the trip off a phone.** `Setup → Save all pictures` renders every
 stamped card and hands the lot to the share sheet in one go; because Safari
 only opens that sheet from a tap and rendering forty cards takes longer than
-a tap lasts, it builds first and saves on a second tap. `Export log` writes
-the ratings out as JSON, and `Erase this phone` drops the database and the
-app's localStorage keys, leaving a shared trip untouched — so the same trip
-code on a new phone pulls everything back.
+a tap lasts, it builds first and saves on a second tap. `Erase this phone`
+drops the database and the app's localStorage keys, leaving a shared trip
+untouched — so the same trip code on a new phone pulls everything back.
+
+**Backups are one file.** `Export everything` writes a zip holding the
+settings as JSON, the ratings, and the photos at the size they were kept. On
+a trip it takes only your own: the others' are theirs, already on their
+phones, and carrying them in your backup would put them back after they had
+left.
+
+`Import a backup` adds whatever is missing and touches nothing else. A rating
+already here is skipped whole — by id, so the same file can be imported twice
+with nothing changing the second time, and a rating deleted since the backup
+stays deleted rather than being resurrected by it. What is restored is dated
+now, because the push marker has already moved past the old stamp and a
+rating older than that would never leave the phone again.
+
+The archive is written and read by `src/lib/zip.ts`, stored rather than
+deflated: it is almost entirely JPEG, which is already compressed, so storing
+costs nothing and keeps the format small enough to implement exactly instead
+of depending on.
 
 **A trip** is any number of phones sharing one log. One phone starts a trip, which is
 nothing but a ten-character code; the others open the invite link and give a
@@ -114,6 +131,11 @@ corner, the text size, the picture's shape and which lines appear are all
 configurable in Setup, and the line budget follows the text size so a long
 pizzeria name can never run off the edge.
 
+The new-rating form offers the corner again for that one picture — some
+pizzas have their best part where the text would land. Choosing there does
+not touch the default in Setup: the rating carries its own corner, and a
+rating without one follows the setting.
+
 **Saving to the camera roll**: iOS gives the web no API for writing directly
 to Photos, so the app opens the share sheet, where "Save Image" is the first
 option. Android and desktop fall back to a normal download.
@@ -182,6 +204,8 @@ never blocks a rating: typing the name always works.
 | `src/lib/merge.ts` | Merge rules for the shared log |
 | `src/lib/bulk.ts` | Saving every picture at once |
 | `src/lib/wipe.ts` | Taking the app off a phone |
+| `src/lib/backup.ts` | Export and import, as one zip |
+| `src/lib/zip.ts` | A stored-only zip reader and writer |
 | `src/lib/sync.ts` | The sync engine and its state |
 | `src/lib/render.ts` | Canvas drawing (browser only) |
 
@@ -195,11 +219,13 @@ app on iOS places a fixed element at launch and then leaves it there when the
 viewport changes under it, and every attempt to detect that and correct it
 made the bar chase the screen instead.
 
-Its height is `100lvh` — the *large* viewport, the screen with any browser UI
-retracted. Not `dvh`, which is resolved before the screen settles, and not a
-number measured in JavaScript: on the phone this kept going wrong on,
-`innerHeight` reports 812 where the screen is 874, and a bar sized from that
-sits 62 points above the bottom.
+Its height is `100dvh`, and that is the only height in the app. The bar kept
+coming off the bottom because there were two: the shell said `lvh` — the
+screen, 874 points — while `body` said `min-height: 100dvh` — what can
+actually be seen, 812. A body 62 points taller than the viewport means the
+*document* can scroll, so a swipe the inner scroller did not take slid the
+whole page, bar and all. `html` and `body` are now `overflow: hidden` with no
+height of their own, so there is nothing left to disagree.
 
 ## Deploying
 

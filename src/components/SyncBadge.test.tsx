@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { manualSyncMessage, syncMessage } from "./SyncBadge";
+import {
+  OFFLINE_QUIET_MS,
+  manualSyncMessage,
+  offlineIsNews,
+  syncMessage,
+} from "./SyncBadge";
 import type { SyncState } from "@/lib/sync";
 
 function state(patch: Partial<SyncState> = {}): SyncState {
@@ -102,5 +107,25 @@ describe("manualSyncMessage", () => {
     });
     expect(manualSyncMessage(state({ status: "error" })).tone).toBe("warn");
     expect(manualSyncMessage(state({ status: "unavailable" })).tone).toBe("warn");
+  });
+});
+
+describe("offlineIsNews", () => {
+  it("speaks the first time, having never spoken", () => {
+    expect(offlineIsNews(-Infinity, Date.now())).toBe(true);
+  });
+
+  it("stays quiet while signal flickers", () => {
+    // Losing and regaining signal every couple of minutes is one situation,
+    // not five pieces of news.
+    const first = 1_000_000;
+    expect(offlineIsNews(first, first + 60_000)).toBe(false);
+    expect(offlineIsNews(first, first + 5 * 60_000)).toBe(false);
+  });
+
+  it("speaks again once the quiet has passed", () => {
+    const first = 1_000_000;
+    expect(offlineIsNews(first, first + OFFLINE_QUIET_MS)).toBe(true);
+    expect(offlineIsNews(first, first + OFFLINE_QUIET_MS + 1)).toBe(true);
   });
 });

@@ -1,14 +1,23 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { TripFooter, Wordmark } from "@/components/Wordmark";
 import { useConfirm } from "@/components/Confirm";
+import { CornerPicker } from "@/components/CornerPicker";
 import { manualSyncMessage } from "@/components/SyncBadge";
 import { useSnackbar } from "@/components/Snackbar";
 import { useEntries, useSettings, useSync, useTrip } from "@/lib/hooks";
 import { othersRatings, ratersOf } from "@/lib/merge";
 import { scaleBands } from "@/lib/score";
+import {
+  backupFileName,
+  buildBackup,
+  exportMessage,
+  importMessage,
+  restoreBackup,
+} from "@/lib/backup";
 import { exportEntries } from "@/lib/db";
+import { saveFile } from "@/lib/share";
 import {
   buildCards,
   bulkMessage,
@@ -33,7 +42,6 @@ import {
   normaliseCode,
 } from "@/lib/trip";
 import type {
-  Corner,
   Entry,
   PhotoQuality,
   Rater,
@@ -65,31 +73,9 @@ const SIZES: Array<{ value: StampSize; label: string }> = [
   { value: "l", label: "LARGE" },
 ];
 
-const CORNERS: Array<{ value: Corner; label: string }> = [
-  { value: "tl", label: "Top left" },
-  { value: "tr", label: "Top right" },
-  { value: "bl", label: "Bottom left" },
-  { value: "br", label: "Bottom right" },
-];
-
 export default function SettingsPage() {
   const { settings, update } = useSettings();
   const { trip } = useTrip();
-  const snack = useSnackbar();
-  const [exporting, setExporting] = useState(false);
-
-  const exportJson = useCallback(async () => {
-    setExporting(true);
-    try {
-      await downloadLog();
-      snack("Log exported (ratings only, no photos)");
-    } catch {
-      snack("Could not export the log", "warn");
-    } finally {
-      setExporting(false);
-    }
-  }, [snack]);
-
   return (
     <main className="flex-1 pb-6">
       <Wordmark subtitle="Setup" />
@@ -158,58 +144,11 @@ export default function SettingsPage() {
           Which corner of the saved picture the stats are stamped into.
         </p>
 
-        <div className="mt-3 grid grid-cols-2 gap-2">
-          {CORNERS.map((corner) => {
-            const active = settings.stampCorner === corner.value;
-            return (
-              <button
-                key={corner.value}
-                type="button"
-                aria-pressed={active}
-                onClick={() => update({ stampCorner: corner.value })}
-                className={`border p-2 text-left transition-colors ${
-                  active ? "border-ink bg-ink text-paper" : "border-rule"
-                }`}
-              >
-                {/* A miniature of the card, so the choice is visible. */}
-                <span
-                  aria-hidden
-                  className={`relative block aspect-square w-full ${
-                    active ? "bg-paper/15" : "bg-paper-dim"
-                  }`}
-                >
-                  {/* One block per line the picture actually stamps —
-                      score, place, pizza — the score in the stronger tone
-                      because that is what the eye lands on. */}
-                  <span
-                    className={`absolute inset-x-2 flex flex-col gap-1 ${
-                      corner.value.startsWith("t") ? "top-2" : "bottom-2"
-                    } ${
-                      corner.value.endsWith("l") ? "items-start" : "items-end"
-                    }`}
-                  >
-                    {["w-1/4", "w-3/5", "w-2/5"].map((width, index) => (
-                      <span
-                        key={width}
-                        className={`h-4 ${width} ${
-                          index === 0
-                            ? active
-                              ? "bg-paper"
-                              : "bg-ink-soft"
-                            : active
-                              ? "bg-paper/50"
-                              : "bg-muted"
-                        }`}
-                      />
-                    ))}
-                  </span>
-                </span>
-                <span className="mt-2 block text-[0.625rem] tracking-[0.16em] uppercase">
-                  {corner.label}
-                </span>
-              </button>
-            );
-          })}
+        <div className="mt-3">
+          <CornerPicker
+            value={settings.stampCorner}
+            onChange={(stampCorner) => update({ stampCorner })}
+          />
         </div>
       </section>
 
@@ -320,14 +259,7 @@ export default function SettingsPage() {
 
         <PictureBackup />
 
-        <button
-          type="button"
-          onClick={exportJson}
-          disabled={exporting}
-          className="mt-2 w-full border border-ink py-3.5 text-[0.6875rem] tracking-[0.22em] disabled:opacity-40"
-        >
-          {exporting ? "EXPORTING…" : "EXPORT LOG (JSON)"}
-        </button>
+        <Backup />
 
         <EraseButton />
       </section>
@@ -648,6 +580,108 @@ function TripSection() {
  * a tap and rendering forty cards outlasts one, so the work happens first
  * and a second tap does nothing but open the sheet.
  */
+/**
+ * The whole app in one file, and back again. Separate from the picture
+ * backup above, which makes shareable pictures; this one is for keeping.
+ */
+function Backup() {
+  const { settings, update } = useSettings();
+  const { trip } = useTrip();
+  const snack = useSnackbar();
+  const picker = useRef<HTMLInputElement>(null);
+  const [busy, setBusy] = useState<"" | "export" | "import">("");
+
+  const exportAll = useCallback(async () => {
+    setBusy("export");
+    try {
+      const { blob, entries } = await buildBackup(trip?.rater, settings);
+      if (entries === 0) {
+        snack("Nothing to export yet", "warn");
+        return;
+      }
+      const result = await saveFile(
+        blob,
+        backupFileName(),
+        "application/zip",
+      );
+      if (result === "cancelled") {
+        snack("Export cancelled", "warn");
+      } else if (result === "failed") {
+        snack("Could not save the backup", "warn");
+      } else {
+        snack(exportMessage(entries));
+      }
+    } catch {
+      snack("Could not build the backup", "warn");
+    } finally {
+      setBusy("");
+    }
+  }, [settings, snack, trip]);
+
+  const importAll = useCallback(
+    async (file: File) => {
+      setBusy("import");
+      try {
+        const result = await restoreBackup(file, trip?.rater);
+        update(result.settings);
+        snack(importMessage(result), result.added > 0 ? "ok" : "warn");
+        // Anything restored inside a trip belongs in the trip.
+        if (trip && result.added > 0) void syncNow();
+      } catch (error) {
+        snack(
+          error instanceof Error ? error.message : "Could not read that backup",
+          "warn",
+        );
+      } finally {
+        setBusy("");
+      }
+    },
+    [snack, trip, update],
+  );
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={exportAll}
+        disabled={busy !== ""}
+        className="mt-2 w-full border border-ink py-3.5 text-[0.6875rem] tracking-[0.22em] disabled:opacity-40"
+      >
+        {busy === "export" ? "BUILDING BACKUP…" : "EXPORT EVERYTHING"}
+      </button>
+      <p className="mt-1.5 text-xs leading-relaxed text-muted">
+        Settings, {trip ? "your ratings" : "every rating"} and the photos, in
+        one zip file.
+      </p>
+
+      <button
+        type="button"
+        onClick={() => picker.current?.click()}
+        disabled={busy !== ""}
+        className="mt-3 w-full border border-ink py-3.5 text-[0.6875rem] tracking-[0.22em] disabled:opacity-40"
+      >
+        {busy === "import" ? "RESTORING…" : "IMPORT A BACKUP"}
+      </button>
+      <p className="mt-1.5 text-xs leading-relaxed text-muted">
+        Adds whatever is missing. Ratings already here are left alone, so the
+        same file can be imported twice with nothing changing.
+      </p>
+      <input
+        ref={picker}
+        type="file"
+        accept=".zip,application/zip"
+        className="sr-only"
+        onChange={(event) => {
+          const file = event.target.files?.[0];
+          // Cleared so picking the same file again still fires a change.
+          event.target.value = "";
+          if (file) void importAll(file);
+        }}
+      />
+    </>
+  );
+}
+
 function PictureBackup() {
   const { settings } = useSettings();
   const { entries } = useEntries();

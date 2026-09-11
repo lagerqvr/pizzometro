@@ -5,7 +5,7 @@
  */
 // Every screen the app can reach is a static page, so the whole thing is
 // precacheable — including a rating opened with no signal.
-const CACHE = "pizzometro-v4";
+const CACHE = "pizzometro-v5";
 const SHELL = [
   "/",
   "/new",
@@ -72,8 +72,12 @@ self.addEventListener("fetch", (event) => {
     event.respondWith(
       fetch(request)
         .then((response) => {
-          const copy = response.clone();
-          caches.open(CACHE).then((cache) => cache.put(request, copy));
+          // Only keep a good page. A 502 during a deploy is still a response,
+          // and caching it would serve the failure back offline for good.
+          if (response.ok) {
+            const copy = response.clone();
+            caches.open(CACHE).then((cache) => cache.put(request, copy));
+          }
           return response;
         })
         // Ignoring the query is what makes an offline "/entry?id=abc" find

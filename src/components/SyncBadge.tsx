@@ -17,6 +17,8 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
   const sync = useSync();
   const previous = useRef<SyncState["status"]>("off");
   const warned = useRef(false);
+  /** When the offline notice was last given, so a flaky signal cannot nag. */
+  const saidOffline = useRef(-Infinity);
 
   useEffect(() => startSync(), []);
 
@@ -25,6 +27,11 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
     previous.current = sync.status;
     const message = syncMessage(before, sync);
     if (!message) return;
+    if (sync.status === "offline") {
+      const now = Date.now();
+      if (!offlineIsNews(saidOffline.current, now)) return;
+      saidOffline.current = now;
+    }
     // The one message that would otherwise repeat on every poll: nothing
     // changes it until the app is redeployed with a store behind it.
     if (message.once) {
@@ -89,6 +96,20 @@ export function manualSyncMessage(sync: SyncState): Message {
  * minute. On top of that, a state nobody needs to act on stays quiet: the
  * badge in the header is always there for anyone who wants to look.
  */
+/**
+ * How long the offline warning stays quiet after being given once.
+ *
+ * Signal in a stone-walled pizzeria drops and returns all through a meal, and
+ * every return is a fresh transition into offline — so the warning is true
+ * each time and still not worth saying each time. The badge shows the state
+ * continuously; this is only the part that interrupts.
+ */
+export const OFFLINE_QUIET_MS = 10 * 60_000;
+
+export function offlineIsNews(saidAt: number, now: number): boolean {
+  return now - saidAt >= OFFLINE_QUIET_MS;
+}
+
 export function syncMessage(
   before: SyncState["status"],
   sync: SyncState,

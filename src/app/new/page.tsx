@@ -10,6 +10,7 @@ import { useSnackbar } from "@/components/Snackbar";
 import { EMPTY_DRAFT, fieldsFor, toEntry, validate, type Draft } from "@/lib/entry";
 import { useObjectUrl, useSettings, useTrip } from "@/lib/hooks";
 import { newId, putEntry, putPhoto, thumbKey } from "@/lib/db";
+import { CornerPicker } from "@/components/CornerPicker";
 import { PHOTO_MAX, makeThumb, renderCard, shrinkPhoto } from "@/lib/render";
 import { saveMessage, saveToPhotos } from "@/lib/share";
 import { syncNow } from "@/lib/sync";
@@ -194,6 +195,18 @@ export default function NewEntryPage() {
               onChange={(place) => patch({ place })}
             />
           )}
+
+          <div className="plate px-4 py-4">
+            <span className="label">Text placement</span>
+            <p className="mt-1 mb-3 text-xs text-muted">
+              Just this picture. Setup keeps the default for the rest.
+            </p>
+            <CornerPicker
+              value={draft.corner}
+              fallback={settings.stampCorner}
+              onChange={(corner) => patch({ corner })}
+            />
+          </div>
 
           <label className="plate block px-4 py-3">
             <span className="label">Note</span>

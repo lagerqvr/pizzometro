@@ -1,4 +1,4 @@
-import type { Entry, EntryKind, Place } from "./types";
+import type { Corner, Entry, EntryKind, Place } from "./types";
 
 /**
  * Which form fields apply to a given kind. The form renders from this so
@@ -51,6 +51,11 @@ export type Draft = {
   note: string;
   /** When it was eaten, as yyyy-mm-dd. Empty means "when it was entered". */
   date: string;
+  /**
+   * Where this picture's text goes. Null means "use the setting", which is
+   * what it stays unless the corner is picked for this one pizza.
+   */
+  corner: Corner | null;
 };
 
 export const EMPTY_DRAFT: Draft = {
@@ -61,6 +66,7 @@ export const EMPTY_DRAFT: Draft = {
   place: null,
   note: "",
   date: "",
+  corner: null,
 };
 
 export type ValidationError = { field: keyof Draft; message: string };
@@ -133,6 +139,7 @@ export function toEntry(
     rating: Math.round(clamp(draft.rating, 0, 10) * 10) / 10,
     place: fields.place && draft.place ? draft.place : undefined,
     note: draft.note.trim() || undefined,
+    corner: draft.corner ?? undefined,
   };
 }
 
@@ -145,6 +152,7 @@ export function toDraft(entry: Entry): Draft {
     place: entry.place ?? null,
     note: entry.note ?? "",
     date: timeToDate(entry.createdAt),
+    corner: entry.corner ?? null,
   };
 }
 
