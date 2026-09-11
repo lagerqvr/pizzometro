@@ -3,7 +3,7 @@
 import { useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useBottomInset, useSettings, useSettleAtBottom } from "@/lib/hooks";
+import { useSettings, useSettleAtBottom } from "@/lib/hooks";
 
 const TABS = [
   { href: "/", label: "LOG" },
@@ -24,7 +24,6 @@ export function activeTab(pathname: string): string | null {
 /** Hidden during the capture flow, which owns the whole screen. */
 export function Nav() {
   const pathname = usePathname();
-  const inset = useBottomInset();
   const bar = useRef<HTMLElement>(null);
   useSettleAtBottom(bar);
   const { settings } = useSettings();
@@ -37,7 +36,6 @@ export function Nav() {
   return (
     <nav
       ref={bar}
-      style={inset > 0 ? { transform: `translateY(${inset}px)` } : undefined}
       className="fixed inset-x-0 bottom-0 z-40 border-t border-rule bg-paper/95 backdrop-blur-sm"
     >
       <div

@@ -87,108 +87,31 @@ export function useEntry(id: string) {
 }
 
 /**
- * How far the bottom of the screen is below the bottom of the layout
- * viewport, which is where a `fixed` element sits.
+ * Asks the browser to place a bottom-pinned element once, on the first frame.
  *
- * On launch, an installed web app is sometimes laid out shorter than the
- * screen it is on: the bar then floats a finger's width above the bottom
- * until something makes the viewport settle — which is why switching tabs
- * appeared to fix it. Measuring the visible area and pushing the bar down by
- * the difference puts it where it belongs.
+ * The phone reports one consistent height for everything, so there is nothing
+ * to measure and correct: iOS simply places the bar at launch against a
+ * viewport it then changes, and leaves it there. One forced layout at the
+ * start is enough to put it right.
  *
- * The keyboard is the same measurement the other way round; it is left
- * alone, so a bar stays behind the keyboard rather than riding above it.
- */
-export function useBottomInset(): number {
-  const [inset, setInset] = useState(0);
-
-  useEffect(() => {
-    const viewport = window.visualViewport;
-    if (!viewport) return;
-    const update = () =>
-      setInset(
-        Math.max(
-          0,
-          Math.round(viewport.offsetTop + viewport.height - window.innerHeight),
-        ),
-      );
-    // Once after mount, because the viewport is still settling at first paint.
-    const settle = requestAnimationFrame(update);
-    viewport.addEventListener("resize", update);
-    viewport.addEventListener("scroll", update);
-    window.addEventListener("orientationchange", update);
-    return () => {
-      cancelAnimationFrame(settle);
-      viewport.removeEventListener("resize", update);
-      viewport.removeEventListener("scroll", update);
-      window.removeEventListener("orientationchange", update);
-    };
-  }, []);
-
-  return inset;
-}
-
-/**
- * Forces an element pinned to the bottom to be placed against the viewport
- * as it is *now*.
- *
- * The phone reports one consistent height for everything — layout viewport,
- * visual viewport and screen all agree — so there is nothing to measure and
- * correct. What happens instead is that iOS places the bar at launch and
- * then leaves it there when the viewport it was placed against changes size,
- * until something forces the layout again. Navigating to another tab is what
- * was doing that, which is why the bar appeared to fix itself.
- *
- * So: write a transform, read a layout property to make the browser act on
- * it, then take it away. A few times around launch, and whenever the
- * viewport changes afterwards.
+ * Deliberately once. Watching for the problem and correcting it whenever it
+ * appeared meant reacting to the visual viewport moving under a finger — the
+ * bar ended up chasing the screen and jumping between two positions, which
+ * is far worse than the thing it was fixing.
  */
 export function useSettleAtBottom(
   ref: React.RefObject<HTMLElement | null>,
 ): void {
   useEffect(() => {
-    const settle = () => {
+    const frame = requestAnimationFrame(() => {
       const element = ref.current;
       if (!element) return;
-
-      // Only when it is actually in the wrong place. Nudging blind means
-      // nudging a bar that is already right, which is what jitters.
-      const viewport = window.visualViewport;
-      const bottom = viewport
-        ? viewport.offsetTop + viewport.height
-        : window.innerHeight;
-      if (Math.abs(element.getBoundingClientRect().bottom - bottom) <= 1) {
-        return;
-      }
-
       element.style.transform = "translateZ(0)";
       // Reading this is what makes the browser place it again.
       void element.offsetHeight;
       element.style.transform = "";
-    };
-
-    const frame = requestAnimationFrame(settle);
-    // Launch is when it goes wrong, and the viewport settles a beat later.
-    // Both are free once the bar is where it belongs.
-    const soon = setTimeout(settle, 200);
-    const later = setTimeout(settle, 700);
-
-    window.visualViewport?.addEventListener("resize", settle);
-    window.addEventListener("resize", settle);
-    window.addEventListener("orientationchange", settle);
-    window.addEventListener("pageshow", settle);
-    document.addEventListener("visibilitychange", settle);
-
-    return () => {
-      cancelAnimationFrame(frame);
-      clearTimeout(soon);
-      clearTimeout(later);
-      window.visualViewport?.removeEventListener("resize", settle);
-      window.removeEventListener("resize", settle);
-      window.removeEventListener("orientationchange", settle);
-      window.removeEventListener("pageshow", settle);
-      document.removeEventListener("visibilitychange", settle);
-    };
+    });
+    return () => cancelAnimationFrame(frame);
   }, [ref]);
 }
 

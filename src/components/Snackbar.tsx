@@ -8,7 +8,6 @@ import {
   useRef,
   useState,
 } from "react";
-import { useBottomInset } from "@/lib/hooks";
 
 type Snack = { id: number; message: string; tone: "ok" | "warn" };
 
@@ -26,7 +25,6 @@ export function SnackbarProvider({
   children: React.ReactNode;
 }) {
   const [snack, setSnack] = useState<Snack | null>(null);
-  const inset = useBottomInset();
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const show = useCallback<SnackbarApi>((message, tone = "ok") => {
@@ -43,7 +41,6 @@ export function SnackbarProvider({
     <SnackbarContext.Provider value={show}>
       {children}
       <div
-        style={inset > 0 ? { transform: `translateY(${inset}px)` } : undefined}
         className="pointer-events-none fixed inset-x-0 bottom-0 z-50 flex justify-center px-4 pb-[calc(env(safe-area-inset-bottom)+5.5rem)]"
         role="status"
         aria-live="polite"

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { act, renderHook } from "@testing-library/react";
-import { useBottomInset, useObjectUrl, useSettleAtBottom } from "./hooks";
+import { useObjectUrl, useSettleAtBottom } from "./hooks";
 
 /**
  * The capture flow holds two blobs at once — the photo and the finished
@@ -60,68 +60,6 @@ describe("useObjectUrl", () => {
 });
 
 /**
- * Everything pinned to the bottom of the screen leans on this. An installed
- * web app is sometimes laid out shorter than the screen it is on, which
- * leaves the bar floating above the bottom until something makes the
- * viewport settle.
- */
-describe("useBottomInset", () => {
-  function mount(viewportHeight: number, innerHeight: number, offsetTop = 0) {
-    const listeners: Record<string, () => void> = {};
-    const viewport = {
-      height: viewportHeight,
-      offsetTop,
-      addEventListener: (name: string, fn: () => void) => {
-        listeners[name] = fn;
-      },
-      removeEventListener: () => {},
-    };
-    vi.stubGlobal("visualViewport", viewport);
-    Object.defineProperty(window, "innerHeight", {
-      value: innerHeight,
-      configurable: true,
-    });
-    return { viewport, fire: () => listeners.resize?.() };
-  }
-
-  it("pushes the bar down when the page is laid out short of the screen", async () => {
-    // The launch bug: 844 points of screen, 704 of layout viewport.
-    const { fire } = mount(844, 704);
-    const { result } = renderHook(() => useBottomInset());
-
-    act(() => fire());
-
-    expect(result.current).toBe(140);
-    vi.unstubAllGlobals();
-  });
-
-  it("leaves the bar alone once the viewport matches the screen", () => {
-    const { fire } = mount(844, 844);
-    const { result } = renderHook(() => useBottomInset());
-    act(() => fire());
-    expect(result.current).toBe(0);
-    vi.unstubAllGlobals();
-  });
-
-  it("does not lift the bar above a keyboard", () => {
-    // Keyboard up: the visible area is shorter, and the bar belongs behind it.
-    const { fire } = mount(508, 844);
-    const { result } = renderHook(() => useBottomInset());
-    act(() => fire());
-    expect(result.current).toBe(0);
-    vi.unstubAllGlobals();
-  });
-
-  it("counts a page scrolled down to reveal something", () => {
-    const { fire } = mount(700, 704, 100);
-    const { result } = renderHook(() => useBottomInset());
-    act(() => fire());
-    expect(result.current).toBe(96);
-    vi.unstubAllGlobals();
-  });
-});
-
-/**
  * iOS places the bottom bar at launch and then leaves it where it was when
  * the viewport changes size, until a layout is forced.
  */
@@ -150,44 +88,36 @@ describe("useSettleAtBottom", () => {
     return { node, writes, reads: () => reads };
   }
 
-  it("places the bar again when it is in the wrong place", async () => {
+  it("asks the browser to place the bar, once", async () => {
     const { node, writes, reads } = element();
-    node.getBoundingClientRect = () => ({ bottom: 400 }) as DOMRect;
-    Object.defineProperty(window, "innerHeight", {
-      value: 874,
-      configurable: true,
-    });
-    vi.stubGlobal("visualViewport", undefined);
-
     renderHook(() => useSettleAtBottom({ current: node }));
+
     await act(async () => {
-      await new Promise((resolve) => setTimeout(resolve, 30));
+      await new Promise((resolve) => setTimeout(resolve, 60));
     });
 
     // A transform written, a layout read to make it count, then cleared.
-    expect(writes).toContain("translateZ(0)");
-    expect(writes).toContain("");
+    expect(writes).toEqual(["translateZ(0)", ""]);
     expect(reads()).toBeGreaterThan(0);
-    vi.unstubAllGlobals();
   });
 
-  it("leaves a bar that is already at the bottom alone", async () => {
+  it("does it once and then leaves the bar alone", async () => {
     const { node, writes } = element();
-    node.getBoundingClientRect = () => ({ bottom: 874 }) as DOMRect;
-    Object.defineProperty(window, "innerHeight", {
-      value: 874,
-      configurable: true,
-    });
-    vi.stubGlobal("visualViewport", undefined);
-
     renderHook(() => useSettleAtBottom({ current: node }));
+
     await act(async () => {
-      await new Promise((resolve) => setTimeout(resolve, 30));
+      await new Promise((resolve) => setTimeout(resolve, 60));
+    });
+    const afterFirst = writes.length;
+
+    // Correcting it again and again is what made it chase the screen.
+    window.dispatchEvent(new Event("resize"));
+    window.visualViewport?.dispatchEvent?.(new Event("resize"));
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 60));
     });
 
-    // Nudging a bar that is already right is what made it jitter.
-    expect(writes).toEqual([]);
-    vi.unstubAllGlobals();
+    expect(writes.length).toBe(afterFirst);
   });
 
   it("does nothing when there is no bar to place", () => {

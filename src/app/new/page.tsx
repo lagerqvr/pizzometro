@@ -8,12 +8,7 @@ import { PlacePicker } from "@/components/PlacePicker";
 import { RatingDial } from "@/components/RatingDial";
 import { useSnackbar } from "@/components/Snackbar";
 import { EMPTY_DRAFT, fieldsFor, toEntry, validate, type Draft } from "@/lib/entry";
-import {
-  useBottomInset,
-  useObjectUrl,
-  useSettings,
-  useTrip,
-} from "@/lib/hooks";
+import { useObjectUrl, useSettings, useTrip } from "@/lib/hooks";
 import { newId, putEntry, putPhoto, thumbKey } from "@/lib/db";
 import { PHOTO_MAX, makeThumb, renderCard, shrinkPhoto } from "@/lib/render";
 import { saveMessage, saveToPhotos } from "@/lib/share";
@@ -33,7 +28,6 @@ export default function NewEntryPage() {
   const snack = useSnackbar();
   const { settings } = useSettings();
   const { trip } = useTrip();
-  const inset = useBottomInset();
 
   const [step, setStep] = useState<Step>("shoot");
   const [photo, setPhoto] = useState<Blob | null>(null);
@@ -232,7 +226,6 @@ export default function NewEntryPage() {
       )}
 
       <div
-        style={inset > 0 ? { transform: `translateY(${inset}px)` } : undefined}
         className="fixed inset-x-0 bottom-0 z-40 border-t border-rule bg-paper/95 px-5 py-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] backdrop-blur-sm"
       >
         <div className="mx-auto max-w-lg">
