@@ -225,7 +225,9 @@ export default function NewEntryPage() {
         </div>
       )}
 
-      <div className="sticky inset-x-0 bottom-0 z-40 border-t border-rule bg-paper px-5 py-4 pb-[calc(env(safe-area-inset-bottom)+1rem)]">
+      {/* The end of the form, not a bar stuck to the screen: sticking it to
+          the bottom of a scrolling area is what made it jump. */}
+      <div className="mt-6 border-t border-rule px-5 py-4 pb-[calc(env(safe-area-inset-bottom)+1rem)]">
         <div className="mx-auto max-w-lg">
           <button
             type="button"
