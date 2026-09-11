@@ -1,8 +1,9 @@
 "use client";
 
+import { useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useBottomInset, useSettings } from "@/lib/hooks";
+import { useBottomInset, useSettings, useSettleAtBottom } from "@/lib/hooks";
 
 const TABS = [
   { href: "/", label: "LOG" },
@@ -24,6 +25,8 @@ export function activeTab(pathname: string): string | null {
 export function Nav() {
   const pathname = usePathname();
   const inset = useBottomInset();
+  const bar = useRef<HTMLElement>(null);
+  useSettleAtBottom(bar);
   const { settings } = useSettings();
   const tabs = TABS.filter((tab) => tab.href !== "/map" || settings.showMap);
 
@@ -33,6 +36,7 @@ export function Nav() {
 
   return (
     <nav
+      ref={bar}
       style={inset > 0 ? { transform: `translateY(${inset}px)` } : undefined}
       className="fixed inset-x-0 bottom-0 z-40 border-t border-rule bg-paper/95 backdrop-blur-sm"
     >

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { act, renderHook } from "@testing-library/react";
-import { useBottomInset, useObjectUrl } from "./hooks";
+import { useBottomInset, useObjectUrl, useSettleAtBottom } from "./hooks";
 
 /**
  * The capture flow holds two blobs at once — the photo and the finished
@@ -118,5 +118,55 @@ describe("useBottomInset", () => {
     act(() => fire());
     expect(result.current).toBe(96);
     vi.unstubAllGlobals();
+  });
+});
+
+/**
+ * iOS places the bottom bar at launch and then leaves it where it was when
+ * the viewport changes size, until a layout is forced.
+ */
+describe("useSettleAtBottom", () => {
+  function element() {
+    const node = document.createElement("nav");
+    const writes: string[] = [];
+    let reads = 0;
+    Object.defineProperty(node, "offsetHeight", {
+      get() {
+        reads += 1;
+        return 56;
+      },
+    });
+    const style = node.style;
+    Object.defineProperty(node, "style", {
+      get() {
+        return new Proxy(style, {
+          set(target, key, value) {
+            if (key === "transform") writes.push(String(value));
+            return Reflect.set(target, key, value);
+          },
+        });
+      },
+    });
+    return { node, writes, reads: () => reads };
+  }
+
+  it("places the bar again once the screen has settled", async () => {
+    const { node, writes, reads } = element();
+    const ref = { current: node };
+    renderHook(() => useSettleAtBottom(ref));
+
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 30));
+    });
+
+    // A transform written, a layout read to make it count, then cleared.
+    expect(writes).toContain("translateZ(0)");
+    expect(writes).toContain("");
+    expect(reads()).toBeGreaterThan(0);
+  });
+
+  it("does nothing when there is no bar to place", () => {
+    const ref = { current: null };
+    expect(() => renderHook(() => useSettleAtBottom(ref))).not.toThrow();
   });
 });

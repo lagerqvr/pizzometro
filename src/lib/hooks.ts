@@ -129,6 +129,58 @@ export function useBottomInset(): number {
 }
 
 /**
+ * Forces an element pinned to the bottom to be placed against the viewport
+ * as it is *now*.
+ *
+ * The phone reports one consistent height for everything — layout viewport,
+ * visual viewport and screen all agree — so there is nothing to measure and
+ * correct. What happens instead is that iOS places the bar at launch and
+ * then leaves it there when the viewport it was placed against changes size,
+ * until something forces the layout again. Navigating to another tab is what
+ * was doing that, which is why the bar appeared to fix itself.
+ *
+ * So: write a transform, read a layout property to make the browser act on
+ * it, then take it away. A few times around launch, and whenever the
+ * viewport changes afterwards.
+ */
+export function useSettleAtBottom(
+  ref: React.RefObject<HTMLElement | null>,
+): void {
+  useEffect(() => {
+    const settle = () => {
+      const element = ref.current;
+      if (!element) return;
+      element.style.transform = "translateZ(0)";
+      // Reading this is what makes the browser place it again.
+      void element.offsetHeight;
+      element.style.transform = "";
+    };
+
+    const frame = requestAnimationFrame(settle);
+    // Launch is when it goes wrong, and the viewport settles a beat later.
+    const soon = setTimeout(settle, 250);
+    const later = setTimeout(settle, 1_000);
+
+    window.visualViewport?.addEventListener("resize", settle);
+    window.addEventListener("resize", settle);
+    window.addEventListener("orientationchange", settle);
+    window.addEventListener("pageshow", settle);
+    document.addEventListener("visibilitychange", settle);
+
+    return () => {
+      cancelAnimationFrame(frame);
+      clearTimeout(soon);
+      clearTimeout(later);
+      window.visualViewport?.removeEventListener("resize", settle);
+      window.removeEventListener("resize", settle);
+      window.removeEventListener("orientationchange", settle);
+      window.removeEventListener("pageshow", settle);
+      document.removeEventListener("visibilitychange", settle);
+    };
+  }, [ref]);
+}
+
+/**
  * One object URL per blob, released when that blob is replaced and not a
  * moment sooner. Sharing a single cleanup between two blobs is how stepping
  * back from the preview lost the photo: the card changing revoked the
