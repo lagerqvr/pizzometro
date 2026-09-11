@@ -39,7 +39,7 @@ export default function NewEntryPage() {
   const [photo, setPhoto] = useState<Blob | null>(null);
   const [draft, setDraft] = useState<Draft>(EMPTY_DRAFT);
   const [card, setCard] = useState<Blob | null>(null);
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useState<"" | "building" | "saving">("");
   const saved = useRef(false);
 
   // Each blob owns its own URL, so one changing never invalidates the other.
@@ -52,14 +52,14 @@ export default function NewEntryPage() {
   );
 
   const onCapture = useCallback(async (blob: Blob) => {
-    setBusy(true);
+    setBusy("building");
     try {
       setPhoto(await shrinkPhoto(blob, PHOTO_MAX[settings.photoQuality]));
       setStep("details");
     } catch {
       snack("Could not read that photo", "warn");
     } finally {
-      setBusy(false);
+      setBusy("");
     }
   }, [snack, settings.photoQuality]);
 
@@ -69,7 +69,7 @@ export default function NewEntryPage() {
   /** Details → preview: build the entry and render the picture. */
   const buildCard = useCallback(async () => {
     if (!photo || errors.length > 0) return;
-    setBusy(true);
+    setBusy("building");
     try {
       const entry = toEntry(draft, { id: "preview", createdAt: Date.now() });
       setCard(await renderCard(photo, entry, settings));
@@ -77,7 +77,7 @@ export default function NewEntryPage() {
     } catch {
       snack("Could not build the picture", "warn");
     } finally {
-      setBusy(false);
+      setBusy("");
     }
   }, [photo, draft, settings, errors.length, snack]);
 
@@ -85,7 +85,7 @@ export default function NewEntryPage() {
   const commit = useCallback(async () => {
     if (!photo || !card || saved.current) return;
     saved.current = true;
-    setBusy(true);
+    setBusy("saving");
     try {
       const id = newId();
       const photoId = `photo:${id}`;
@@ -94,7 +94,9 @@ export default function NewEntryPage() {
       await putEntry(trip ? { ...entry, rater: trip.rater } : entry);
       // Straight into the queue; it goes up now or the next time there is
       // signal, and either way the rating is already saved.
-      if (trip) void syncNow();
+      // Held back a moment: uploading a full-size photo competes with
+      // rendering the screen we are about to show.
+      if (trip) setTimeout(() => void syncNow(), 2_000);
 
       // The rating is saved; handing the picture to the share sheet is a
       // side effect that reports itself. iOS sometimes never settles that
@@ -107,7 +109,7 @@ export default function NewEntryPage() {
       router.replace(`/entry?id=${id}`);
     } catch {
       saved.current = false;
-      setBusy(false);
+      setBusy("");
       snack("Could not save the rating", "warn");
     }
   }, [photo, card, draft, router, snack, trip]);
@@ -234,15 +236,17 @@ export default function NewEntryPage() {
         <div className="mx-auto max-w-lg">
           <button
             type="button"
-            disabled={busy || errors.length > 0}
+            disabled={busy !== "" || errors.length > 0}
             onClick={step === "details" ? buildCard : commit}
             className="w-full bg-ink py-4 text-[0.75rem] tracking-[0.22em] text-paper transition-transform active:scale-[0.985] disabled:opacity-40"
           >
-            {busy
-              ? "WORKING…"
-              : step === "details"
-                ? "REVIEW PICTURE"
-                : "SAVE & KEEP PICTURE"}
+            {busy === "building"
+              ? "BUILDING PICTURE…"
+              : busy === "saving"
+                ? "SAVING…"
+                : step === "details"
+                  ? "REVIEW PICTURE"
+                  : "SAVE & KEEP PICTURE"}
           </button>
         </div>
       </div>

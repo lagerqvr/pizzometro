@@ -14,7 +14,7 @@ name into the corner of a picture ready for social media.
 ```bash
 npm install
 npm run dev        # http://localhost:3000
-npm test           # 282 unit, component and route tests
+npm test           # 285 unit, component and route tests
 npm run typecheck
 npm run build
 ```
@@ -95,9 +95,11 @@ bytes plus a MIME type rather than as `Blob` objects, which several Safari
 versions fail to hand back intact.
 
 **The share picture** is centre-cropped to a square or keeps the photo's own
-shape, as you like, and is 1080px along its longest side unless the photo
-quality is full — in which case it is as big as the photo, and never bigger,
-since upscaling only invents detail.
+shape, as you like. It is 1080px along its longest side, or 2048 at full
+quality — and never bigger than the photo, since upscaling only invents
+detail. The photo itself is kept whole, but the picture has to be composited
+and JPEG-encoded on the phone every time one is saved, and a 3088px canvas is
+six times the pixels of a 1080 one: the wait shows.
 The stamp is plain white monospace, one size for every line — score, place,
 pizza — hard against a corner with no panel, rule or shadow behind it. The
 corner, the text size, the picture's shape and which lines appear are all

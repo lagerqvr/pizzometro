@@ -99,7 +99,7 @@ export async function renderCard(
   // the social-media 1080. Everything drawn on it scales to match.
   const longest =
     settings.photoQuality === "full"
-      ? Math.min(PHOTO_MAX.full, Math.max(bitmap.width, bitmap.height))
+      ? Math.min(CARD_MAX_FULL, Math.max(bitmap.width, bitmap.height))
       : CARD_SIZE;
   const { width, height } = cardSize(
     { width: bitmap.width, height: bitmap.height },
@@ -151,6 +151,14 @@ export const PHOTO_MAX: Record<PhotoQuality, number> = {
   balanced: 1600,
   full: 4096,
 };
+
+/**
+ * The longest side of the saved picture at full quality. The photo itself is
+ * kept whole, but the picture has to be composited and JPEG-encoded on the
+ * phone every time one is saved: 3088px is six times the pixels of the old
+ * 1080 and the wait shows. 2048 is a printable size for a third of the work.
+ */
+export const CARD_MAX_FULL = 2048;
 
 /**
  * Downscales a camera photo before it goes into IndexedDB, and re-encodes

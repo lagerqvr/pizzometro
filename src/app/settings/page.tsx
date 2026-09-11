@@ -56,7 +56,7 @@ async function downloadLog(): Promise<void> {
 
 const QUALITIES: Array<{ value: PhotoQuality; label: string; hint: string }> = [
   { value: "balanced", label: "BALANCED", hint: "1600px photo · 1080px picture" },
-  { value: "full", label: "FULL", hint: "As shot, both · ~3–6 MB" },
+  { value: "full", label: "FULL", hint: "Photo as shot · 2048px picture" },
 ];
 
 const SIZES: Array<{ value: StampSize; label: string }> = [
