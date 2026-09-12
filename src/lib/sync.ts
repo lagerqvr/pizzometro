@@ -7,7 +7,9 @@ import {
   loadRoster,
   loadTrip,
   markRegistered,
+  markRepaired,
   needsRegistration,
+  needsRepair,
   saveMark,
   saveRoster,
 } from "./trip";
@@ -62,6 +64,25 @@ const IDLE: SyncState = {
 const REQUEST_TIMEOUT_MS = 20_000;
 const POLL_MS = 60_000;
 
+/*
+ * A photo needs its own patience. Twenty seconds is right for a few
+ * kilobytes of JSON and hopeless for four megabytes of JPEG: that is 1.5
+ * Mbit/s sustained, which roaming data inside a stone building does not
+ * give, so the upload aborted every time and the picture never left the
+ * phone however long the trip went on.
+ *
+ * The allowance is the size divided by a deliberately pessimistic rate, with
+ * a floor for small files and a ceiling so a dead connection still gives up.
+ */
+const UPLOAD_FLOOR_MS = 30_000;
+const UPLOAD_CEILING_MS = 5 * 60_000;
+const SLOW_BYTES_PER_MS = 8; // ~64 kbit/s
+
+export function uploadTimeout(bytes: number): number {
+  const needed = UPLOAD_FLOOR_MS + bytes / SLOW_BYTES_PER_MS;
+  return Math.min(UPLOAD_CEILING_MS, Math.round(needed));
+}
+
 let state: SyncState = IDLE;
 /** Set by a 503; cleared by a reload or by asking for a sync by hand. */
 let unavailable = false;
@@ -101,9 +122,13 @@ function isOnline(): boolean {
   return typeof navigator === "undefined" || navigator.onLine !== false;
 }
 
-async function request(url: string, init?: RequestInit): Promise<Response> {
+async function request(
+  url: string,
+  init?: RequestInit,
+  timeoutMs = REQUEST_TIMEOUT_MS,
+): Promise<Response> {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     return await fetch(url, { ...init, signal: controller.signal });
   } finally {
@@ -125,11 +150,15 @@ async function uploadPhotos(
 
   /** Sends one blob up and hands back where it landed. */
   const send = async (id: string, blob: Blob): Promise<string> => {
-    const response = await request(`/api/trip/${trip.code}/photos/${id}`, {
-      method: "POST",
-      headers: { "content-type": blob.type || "image/jpeg" },
-      body: blob,
-    });
+    const response = await request(
+      `/api/trip/${trip.code}/photos/${id}`,
+      {
+        method: "POST",
+        headers: { "content-type": blob.type || "image/jpeg" },
+        body: blob,
+      },
+      uploadTimeout(blob.size),
+    );
     if (!response.ok) throw new Error(String(response.status));
     const { url } = (await response.json()) as { url?: string };
     if (typeof url !== "string") throw new Error("no url");
@@ -150,21 +179,34 @@ async function uploadPhotos(
       prepared.push(entry);
       continue;
     }
+    /*
+     * One at a time, smallest first, saving each address the moment it
+     * lands. Two uploads at once only split a weak connection between them,
+     * and losing the pair because the second failed meant sending the first
+     * again — four megabytes of roaming data to learn nothing.
+     *
+     * The thumbnail goes first because it is a fortieth of the bytes and it
+     * is what the log actually shows: the other phone gets a picture tonight
+     * rather than nothing until the full photo finally gets through.
+     */
+    let carried: Entry = entry;
     try {
       const thumbId = db.thumbKey(entry.photoId);
-      const thumb = (await db.getPhoto(thumbId)) ?? (await makeThumb(photo));
-      const [photoUrl, thumbUrl] = await Promise.all([
-        entry.photoUrl ?? send(entry.photoId, photo),
-        entry.thumbUrl ?? send(thumbId, thumb),
-      ]);
-      // Same version, so recording the URLs costs no extra round of syncing.
-      const updated: Entry = { ...entry, photoUrl, thumbUrl };
-      await db.putEntry(updated);
-      prepared.push(updated);
+      if (!carried.thumbUrl) {
+        const thumb = (await db.getPhoto(thumbId)) ?? (await makeThumb(photo));
+        carried = { ...carried, thumbUrl: await send(thumbId, thumb) };
+        await db.putEntry(carried);
+      }
+      if (!carried.photoUrl) {
+        carried = { ...carried, photoUrl: await send(entry.photoId, photo) };
+        await db.putEntry(carried);
+      }
     } catch {
+      // Whatever did get up is kept and pushed; the rest waits for the next
+      // round, which the held-back marker guarantees there will be.
       complete = false;
-      prepared.push(entry);
     }
+    prepared.push(carried);
   }
 
   return { entries: prepared, complete };
@@ -229,8 +271,11 @@ async function run(): Promise<void> {
       saveMark({ ...mark, pushedAt: startedAt });
     }
 
+    // Once per phone, the whole log rather than only what is new, so the
+    // merge can pick up photo addresses it discarded on an earlier tie.
+    const repairing = needsRepair();
     const response = await request(
-      `/api/trip/${trip.code}?since=${mark.pulledAt}`,
+      `/api/trip/${trip.code}?since=${repairing ? 0 : mark.pulledAt}`,
     );
     if (!response.ok) {
       stopped(response.status, outgoing.length);
@@ -270,6 +315,8 @@ async function run(): Promise<void> {
       pushedAt: loadMark().pushedAt,
       pulledAt: typeof body.now === "number" ? body.now : Date.now(),
     });
+    // Only once the full read has actually landed and merged.
+    if (repairing) markRepaired();
 
     const stillPending = pendingPush(
       await db.listAllEntries(),

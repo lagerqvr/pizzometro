@@ -28,15 +28,44 @@ function later(a: Entry, b: Entry): Entry {
 }
 
 /**
+ * Where a photo lives is not an edit.
+ *
+ * A rating is published the moment it is made, but its photo may take several
+ * more attempts to get up — so the same version of the same rating exists as
+ * "no picture yet" on one phone and "picture, and here it is" on another.
+ * Last-write-wins cannot tell those apart, because they are the same write:
+ * the tie keeps whichever copy was already held, and a phone that pulled the
+ * rating before the photo landed would keep the blank one for good.
+ *
+ * So a tie takes the addresses instead of choosing between them. Returns null
+ * when there is nothing to learn, which is the ordinary case.
+ */
+function learnPhotoUrls(mine: Entry, theirs: Entry): Entry | null {
+  // A deleted entry has had its photo removed on purpose.
+  if (mine.deleted || theirs.deleted) return null;
+  const photoUrl = mine.photoUrl ?? theirs.photoUrl;
+  const thumbUrl = mine.thumbUrl ?? theirs.thumbUrl;
+  if (photoUrl === mine.photoUrl && thumbUrl === mine.thumbUrl) return null;
+  return { ...mine, photoUrl, thumbUrl };
+}
+
+/**
  * The remote entries that should replace what is stored locally — the only
  * ones worth writing back to IndexedDB after a pull.
  */
 export function changesFrom(local: Entry[], remote: Entry[]): Entry[] {
   const byId = new Map(local.map((entry) => [entry.id, entry]));
-  return remote.filter((entry) => {
+  const changed: Entry[] = [];
+  for (const entry of remote) {
     const mine = byId.get(entry.id);
-    return !mine || later(mine, entry) === entry;
-  });
+    if (!mine || later(mine, entry) === entry) {
+      changed.push(entry);
+      continue;
+    }
+    const learned = learnPhotoUrls(mine, entry);
+    if (learned) changed.push(learned);
+  }
+  return changed;
 }
 
 export function mergeEntries(local: Entry[], remote: Entry[]): Entry[] {

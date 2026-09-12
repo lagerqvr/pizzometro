@@ -10,6 +10,7 @@ const RATER_KEY = "pizzometro:rater-id";
 const MEMBER_KEY = "pizzometro:member";
 const ROSTER_KEY = "pizzometro:roster";
 const MARK_KEY = "pizzometro:sync";
+const REPAIR_KEY = "pizzometro:repair";
 const ALPHABET = "abcdefghijkmnpqrstuvwxyz23456789"; // No l/o/0/1 to read aloud.
 const CODE_LENGTH = 10;
 const CODE_PATTERN = /^[a-z0-9]{10}$/;
@@ -120,6 +121,29 @@ export function loadMark(): SyncMark {
 export function saveMark(mark: SyncMark): void {
   if (typeof localStorage === "undefined") return;
   localStorage.setItem(MARK_KEY, JSON.stringify(mark));
+}
+
+/*
+ * A phone that pulled a rating before its photo had finished uploading kept
+ * the copy with no picture, because the two are the same version and a tie
+ * keeps what is already held. The merge now learns the addresses instead of
+ * choosing between them — but only from a pull that actually re-delivers the
+ * rating, and an ordinary pull asks only for what has changed since last
+ * time.
+ *
+ * So each phone reads the whole log once. It is the entries alone, a few
+ * kilobytes; photos are still only fetched when a screen asks for one.
+ */
+const REPAIR = "photo-urls-1";
+
+export function needsRepair(): boolean {
+  if (typeof localStorage === "undefined") return false;
+  return localStorage.getItem(REPAIR_KEY) !== REPAIR;
+}
+
+export function markRepaired(): void {
+  if (typeof localStorage === "undefined") return;
+  localStorage.setItem(REPAIR_KEY, REPAIR);
 }
 
 /** Clearing the marks forces the next sync to push and pull everything. */

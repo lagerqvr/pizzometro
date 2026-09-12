@@ -95,6 +95,26 @@ phones cannot clobber each other, and a merge is decided by last-write-wins
 with deletes winning ties. A delete leaves a tombstone: without one, the entry
 comes straight back on the next pull.
 
+**A photo is not an edit**, and the merge has to know it. A rating is
+published the moment it is made; its photo may take several more rounds to
+get up. A phone that pulls in between holds the same version of the same
+rating with no picture — and last-write-wins cannot separate those, because
+they *are* the same write. The tie kept whichever copy was already held, so
+that phone showed a blank card for good. A tie now takes the addresses rather
+than choosing between them, and each phone reads the whole log once
+(`pizzometro:repair`) so the ones it already discarded come back.
+
+**The photo upload gets its own patience.** Twenty seconds is right for a few
+kilobytes of JSON and hopeless for four megabytes of JPEG — that is 1.5
+Mbit/s sustained, which roaming data inside a stone building does not give,
+so the upload aborted every time and the picture never left the phone. The
+allowance now follows the size, with a floor and a ceiling. The uploads also
+go one at a time, thumbnail first: two at once only split a weak connection,
+and the small copy is what the log shows, so the other phone gets a picture
+tonight rather than nothing until the full photo finally gets through. Each
+address is saved the moment it lands, so a failure never costs the megabytes
+that already made it.
+
 **The camera** is the phone's own by default: iOS forgets camera permission
 for an installed web app on every launch, and the camera app needs none. The
 built-in viewfinder is a setting away, and it asks for the whole sensor and
@@ -207,6 +227,7 @@ never blocks a rating: typing the name always works.
 | `src/lib/backup.ts` | Export and import, as one zip |
 | `src/lib/zip.ts` | A stored-only zip reader and writer |
 | `src/lib/sync.ts` | The sync engine and its state |
+| `src/components/ViewportReset.tsx` | Putting the screen back after the keyboard |
 | `src/lib/render.ts` | Canvas drawing (browser only) |
 
 The logic in `src/lib` is deliberately free of React so it can be tested

@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { IBM_Plex_Mono, Courier_Prime } from "next/font/google";
 import "./globals.css";
 import { Nav } from "@/components/Nav";
+import { ViewportReset } from "@/components/ViewportReset";
 import { NewRatingButton } from "@/components/NewRatingButton";
 import { ConfirmProvider } from "@/components/Confirm";
 import { SnackbarProvider } from "@/components/Snackbar";
@@ -87,6 +88,7 @@ export default function RootLayout({
                 </div>
                 <Nav />
                 <NewRatingButton />
+                <ViewportReset />
               </SyncProvider>
             </ConfirmProvider>
           </SnackbarProvider>

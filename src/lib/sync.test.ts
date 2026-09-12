@@ -13,7 +13,13 @@ async function storePhoto(id: string) {
   await db.putPhoto(db.thumbKey(id), new Blob(["t"], { type: "image/jpeg" }));
 }
 import * as db from "./db";
-import { getSyncState, subscribeEntries, syncNow, tripExists } from "./sync";
+import {
+  getSyncState,
+  subscribeEntries,
+  syncNow,
+  tripExists,
+  uploadTimeout,
+} from "./sync";
 import { loadMark, loadRoster, saveTrip } from "./trip";
 import type { Entry } from "./types";
 
@@ -350,5 +356,123 @@ describe("tripExists", () => {
       vi.fn(async () => new Response("nope", { status: 503 })),
     );
     await expect(tripExists(CODE)).rejects.toThrow();
+  });
+});
+
+describe("uploadTimeout", () => {
+  it("gives a few kilobytes a floor, not a fifth of a second", () => {
+    expect(uploadTimeout(40_000)).toBeGreaterThanOrEqual(30_000);
+  });
+
+  it("gives a four-megabyte photo minutes, not twenty seconds", () => {
+    // The old fixed 20s needed 1.5 Mbit/s sustained to send this, so on
+    // roaming data it aborted every time and the photo never went up.
+    const timeout = uploadTimeout(4 * 1024 * 1024);
+    expect(timeout).toBeGreaterThan(120_000);
+  });
+
+  it("grows with the payload", () => {
+    expect(uploadTimeout(2_000_000)).toBeGreaterThan(uploadTimeout(200_000));
+  });
+
+  it("still gives up on a dead connection", () => {
+    expect(uploadTimeout(500 * 1024 * 1024)).toBeLessThanOrEqual(5 * 60_000);
+  });
+});
+
+describe("a photo that arrived after the rating did", () => {
+  /*
+   * The trip's real failure: a rating is published the moment it is made,
+   * its photo takes several more rounds to get up, and the other phone
+   * pulled in between. Both copies are the same version, so the tie kept the
+   * blank one and the picture never appeared however often it synced.
+   */
+  const theirs = { id: "r-axel", name: "Axel" };
+
+  it("fills in the picture on a later pull", async () => {
+    saveTrip({ code: CODE, rater });
+    // Pulled earlier, before the photo had finished uploading.
+    await db.putEntry(
+      entry("marinara", { rater: theirs, photoId: "photo:marinara" }),
+    );
+
+    const withPhoto = entry("marinara", {
+      rater: theirs,
+      photoId: "photo:marinara",
+      photoUrl: "https://s.public.blob.vercel-storage.com/photo.jpg",
+      thumbUrl: "https://s.public.blob.vercel-storage.com/thumb.jpg",
+    });
+    endpoint([withPhoto]);
+
+    await syncNow();
+
+    const [held] = await db.listEntries();
+    expect(held.photoUrl).toBe("https://s.public.blob.vercel-storage.com/photo.jpg");
+    expect(held.thumbUrl).toBe("https://s.public.blob.vercel-storage.com/thumb.jpg");
+  });
+
+  it("reads the whole log once, then only what is new", async () => {
+    saveTrip({ code: CODE, rater });
+    const { fetchMock } = endpoint([], 5_000);
+
+    await syncNow();
+    const first = fetchMock.mock.calls.map(([url]) => String(url)).at(-1)!;
+    // The repair pass: everything, so a discarded address can be re-learned.
+    expect(first).toContain("since=0");
+
+    await syncNow();
+    const second = fetchMock.mock.calls.map(([url]) => String(url)).at(-1)!;
+    expect(second).toContain("since=5000");
+  });
+
+  it("sends the small copy first, so something shows before the photo lands", async () => {
+    saveTrip({ code: CODE, rater });
+    await storePhoto("photo:a");
+    await db.putEntry(entry("a", { photoId: "photo:a" }));
+    const { photos } = endpoint();
+
+    await syncNow();
+
+    expect(photos).toHaveLength(2);
+    expect(photos[0]).toContain("thumb");
+    expect(photos[1]).not.toContain("thumb");
+  });
+
+  it("keeps an address that landed even when the next upload fails", async () => {
+    saveTrip({ code: CODE, rater });
+    await storePhoto("photo:a");
+    await db.putEntry(entry("a", { photoId: "photo:a" }));
+
+    // The thumbnail gets through; the full photo does not.
+    let sent = 0;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string, init?: RequestInit) => {
+        if (String(url).includes("/photos/")) {
+          sent += 1;
+          if (sent > 1) throw new Error("connection lost");
+          return new Response(JSON.stringify({ url: "https://s.public.blob.vercel-storage.com/thumb.jpg" }), {
+            status: 200,
+          });
+        }
+        if (init?.method === "POST") {
+          return new Response(JSON.stringify({ saved: 1, now: 5_000 }), {
+            status: 200,
+          });
+        }
+        return new Response(JSON.stringify({ entries: [], members: [], now: 5_000 }), {
+          status: 200,
+        });
+      }),
+    );
+
+    await syncNow();
+
+    const [held] = await db.listEntries();
+    // Kept, so the next round does not send those bytes again.
+    expect(held.thumbUrl).toBe("https://s.public.blob.vercel-storage.com/thumb.jpg");
+    expect(held.photoUrl).toBeUndefined();
+    // And the rating stays queued until the photo follows it up.
+    expect(loadMark().pushedAt).toBe(0);
   });
 });
